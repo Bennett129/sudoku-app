@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react";
 import { valueForKeyCode } from "@/lib/engine";
 import { themeById } from "@/lib/themes";
+import { bootGame, startAutosave } from "@/store/autosave";
 import { formatTime, useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
 import { Controls } from "./Controls";
 import { Header } from "./Header";
 import { AccountDialog } from "./AccountDialog";
+import { HistoryDialog } from "./HistoryDialog";
 import { SettingsDialog } from "./SettingsDialog";
 import { ZoomableBoard } from "./ZoomableBoard";
 
 export function GameScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const seed = useGame((s) => s.seed);
   const status = useGame((s) => s.status);
   const theme = useSettings((s) => s.theme);
@@ -21,7 +24,7 @@ export function GameScreen() {
   useBoot();
   useDevicePixelRatio();
   useTimer();
-  useKeyboard(settingsOpen || accountOpen);
+  useKeyboard(settingsOpen || accountOpen || historyOpen);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -31,7 +34,11 @@ export function GameScreen() {
 
   return (
     <main className="mx-auto flex h-dvh w-full max-w-6xl flex-col gap-3 p-3 sm:p-4 lg:gap-4">
-      <Header onOpenSettings={() => setSettingsOpen(true)} onOpenAccount={() => setAccountOpen(true)} />
+      <Header
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenAccount={() => setAccountOpen(true)}
+        onOpenHistory={() => setHistoryOpen(true)}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
         {/* Board area: a size container so the square board fits both width and height. */}
@@ -58,6 +65,7 @@ export function GameScreen() {
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <HistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
     </main>
   );
 }
@@ -77,7 +85,9 @@ function Solved() {
 function useBoot() {
   useEffect(() => {
     void useSettings.persist.rehydrate();
-    if (useGame.getState().status === "loading") useGame.getState().newGame(9);
+    const stopAutosave = startAutosave();
+    void bootGame();
+    return stopAutosave;
   }, []);
 }
 

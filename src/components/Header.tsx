@@ -1,16 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { SUPPORTED_SIZES } from "@/lib/engine";
+import { hasProgress } from "@/lib/save/serialize";
+import { openSize, useSaves } from "@/store/autosave";
 import { authClient } from "@/lib/auth-client";
 import { THEMES } from "@/lib/themes";
 import { formatTime, useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
 import { useZoom } from "@/store/zoom";
 
-export function Header({ onOpenSettings, onOpenAccount }: { onOpenSettings: () => void; onOpenAccount: () => void }) {
+export function Header({
+  onOpenSettings,
+  onOpenAccount,
+  onOpenHistory,
+}: {
+  onOpenSettings: () => void;
+  onOpenAccount: () => void;
+  onOpenHistory: () => void;
+}) {
   const size = useGame((s) => s.spec.size);
   const elapsed = useGame((s) => s.elapsed);
-  const newGame = useGame((s) => s.newGame);
+  const inProgress = useSaves((s) => s.inProgress);
   const theme = useSettings((s) => s.theme);
   const update = useSettings((s) => s.update);
 
@@ -22,24 +33,19 @@ export function Header({ onOpenSettings, onOpenAccount }: { onOpenSettings: () =
         <span className="sr-only">Grid size</span>
         <select
           value={size}
-          onChange={(e) => newGame(Number(e.target.value))}
+          onChange={(e) => void openSize(Number(e.target.value))}
           className="rounded-lg bg-key px-2 py-1 font-medium text-ink"
         >
           {SUPPORTED_SIZES.map((n) => (
             <option key={n} value={n}>
               {n}×{n}
+              {n !== size && inProgress.includes(n) ? " · in progress" : ""}
             </option>
           ))}
         </select>
       </label>
 
-      <button
-        type="button"
-        onClick={() => newGame(size)}
-        className="rounded-lg bg-accent px-3 py-1 text-sm font-medium text-accent-ink"
-      >
-        New
-      </button>
+      <NewGameButton />
 
       <span className="ml-auto font-mono text-sm tabular-nums" aria-label="Time elapsed">
         {formatTime(elapsed)}
@@ -64,6 +70,20 @@ export function Header({ onOpenSettings, onOpenAccount }: { onOpenSettings: () =
           />
         ))}
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenHistory}
+        aria-label="History"
+        title="History"
+        className="rounded-lg p-1 text-ink hover:bg-key"
+      >
+        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+      </button>
 
       <button
         type="button"
@@ -105,6 +125,37 @@ function AccountButton({ onClick }: { onClick: () => void }) {
           <path d="M4 21a8 8 0 0 1 16 0" />
         </svg>
       )}
+    </button>
+  );
+}
+
+/**
+ * Starts a new puzzle of the current size. If the current game has progress,
+ * the first tap turns the button into "Sure?" for a few seconds, so a stray
+ * tap can't throw away a game in progress.
+ */
+function NewGameButton() {
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const id = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(id);
+  }, [confirming]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const game = useGame.getState();
+        if (!confirming && hasProgress(game)) return setConfirming(true);
+        setConfirming(false);
+        game.newGame(game.spec.size);
+      }}
+      aria-live="polite"
+      className="min-w-14 rounded-lg bg-accent px-3 py-1 text-sm font-medium text-accent-ink"
+    >
+      {confirming ? "Sure?" : "New"}
     </button>
   );
 }

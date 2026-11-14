@@ -1,6 +1,6 @@
 # Sudoku
 
-A mobile-friendly sudoku app supporting grids from 4×4 to 25×25, built with Next.js, TypeScript, Tailwind CSS and Zustand.
+A mobile-friendly sudoku app supporting grids from 6×6 to 25×25, built with Next.js, TypeScript, Tailwind CSS and Zustand.
 
 See [PLAN.md](./PLAN.md) for goals, decisions and the roadmap.
 

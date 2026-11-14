@@ -1,0 +1,131 @@
+/**
+ * Keeps the current game saved on the device and gives access to past games.
+ *
+ * - Every game is saved under its own id; the last one played at each size is
+ *   "current" for that size, so switching sizes resumes it.
+ * - Saves at most every SAVE_INTERVAL ms while playing, immediately on a new
+ *   game, size switch, reopen or solve, and flushes when the tab is hidden.
+ * - The last played size is reopened on the next visit.
+ * - Finished games are appended to a "completed" list for stats.
+ */
+import { create } from "zustand";
+import { SUPPORTED_SIZES } from "@/lib/engine";
+import { toSavedGame } from "@/lib/save/serialize";
+import * as storage from "@/lib/save/storage";
+import { useGame } from "./game";
+
+const SAVE_INTERVAL = 1500;
+const DEFAULT_SIZE = 9;
+
+interface SavesState {
+  /** Sizes whose current game is unfinished, shown in the size picker. */
+  inProgress: number[];
+  /** Bumped after every write so views like History can refresh. */
+  revision: number;
+}
+
+export const useSaves = create<SavesState>()(() => ({ inProgress: [], revision: 0 }));
+
+let timer: ReturnType<typeof setTimeout> | null = null;
+let dirty = false;
+
+async function refreshSaves() {
+  const inProgress = await storage.listInProgressSizes();
+  useSaves.setState((s) => ({ inProgress, revision: s.revision + 1 }));
+}
+
+export async function saveNow(): Promise<void> {
+  if (timer) clearTimeout(timer);
+  timer = null;
+  dirty = false;
+  const saved = toSavedGame(useGame.getState());
+  if (!saved) return;
+  await storage.saveGame(saved);
+  await refreshSaves();
+}
+
+function scheduleSave() {
+  dirty = true;
+  timer ??= setTimeout(() => void saveNow(), SAVE_INTERVAL);
+}
+
+/** Start watching the game store. Returns a cleanup function. */
+export function startAutosave(): () => void {
+  const unsubscribe = useGame.subscribe((state, prev) => {
+    if (state.status === "loading") return;
+
+    // A different game is now showing (new puzzle, size switch, reopened from History).
+    if (state.id !== prev.id) {
+      void saveNow();
+      void storage.saveLastSize(state.spec.size);
+      return;
+    }
+
+    if (prev.status === "playing" && state.status === "solved") {
+      void storage.recordCompleted({
+        size: state.spec.size,
+        seed: state.seed,
+        elapsed: state.elapsed,
+        hintsUsed: state.hintsUsed,
+        completedAt: Date.now(),
+      });
+      void saveNow();
+      return;
+    }
+
+    scheduleSave();
+  });
+
+  const flush = () => {
+    if (dirty) void saveNow();
+  };
+  const onVisibility = () => {
+    if (document.visibilityState === "hidden") flush();
+  };
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pagehide", flush);
+
+  return () => {
+    unsubscribe();
+    document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("pagehide", flush);
+    flush();
+  };
+}
+
+/** Switch grid size, resuming the game last played at that size if there is one. */
+export async function openSize(size: number): Promise<void> {
+  const game = useGame.getState();
+  if (game.status !== "loading" && game.spec.size === size) return;
+  if (dirty) await saveNow();
+  const saved = await storage.loadCurrentGame(size);
+  if (saved) useGame.getState().restore(saved);
+  else useGame.getState().newGame(size);
+}
+
+/** Reopen a game from History. Returns false if it could not be loaded. */
+export async function openGame(id: string): Promise<boolean> {
+  if (useGame.getState().id === id) return true;
+  if (dirty) await saveNow();
+  const saved = await storage.loadGame(id);
+  if (!saved) return false;
+  useGame.getState().restore(saved);
+  return true;
+}
+
+/** Remove a past game. The game currently on screen can't be removed. */
+export async function deleteGame(id: string): Promise<void> {
+  if (useGame.getState().id === id) return;
+  await storage.removeGame(id);
+  await refreshSaves();
+}
+
+/** First load: upgrade old saves, then reopen the last played size (or 9×9). */
+export async function bootGame(): Promise<void> {
+  await storage.migrateLegacySaves();
+  const lastSize = await storage.loadLastSize();
+  await refreshSaves();
+  if (useGame.getState().status !== "loading") return; // the player already started something
+  const size = SUPPORTED_SIZES.includes(lastSize as (typeof SUPPORTED_SIZES)[number]) ? lastSize! : DEFAULT_SIZE;
+  await openSize(size);
+}

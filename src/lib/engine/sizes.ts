@@ -18,7 +18,10 @@ export interface GridSpec {
   box: BoxShape;
 }
 
-export const SUPPORTED_SIZES = [4, 6, 8, 9, 10, 12, 15, 16, 20, 25] as const;
+// 4×4 was dropped: it only ever needs naked/hidden singles, so difficulty levels
+// can't apply; 6×6 covers "small and easy". The engine still handles any
+// rectangular size, so re-adding a size is a one-line change.
+export const SUPPORTED_SIZES = [6, 8, 9, 10, 12, 15, 16, 20, 25] as const;
 export type SupportedSize = (typeof SUPPORTED_SIZES)[number];
 
 /** Most-square factor pair with rows ≤ cols (6 → 2×3, 12 → 3×4, 25 → 5×5). */

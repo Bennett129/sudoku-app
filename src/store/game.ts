@@ -10,6 +10,7 @@ import {
   specFor,
   type GridSpec,
 } from "@/lib/engine";
+import { makeGameId, type SavedGame } from "@/lib/save/serialize";
 import { useSettings } from "./settings";
 
 /** Notes are a bitmask per cell: bit (v - 1) set ⇒ v is pencilled in. */
@@ -26,6 +27,9 @@ export type GameStatus = "loading" | "playing" | "solved";
 interface GameState extends Snapshot {
   spec: GridSpec;
   seed: number;
+  /** Stable id (size + seed), used to keep past games in History. */
+  id: string;
+  createdAt: number;
   solution: number[];
   givens: boolean[];
   selected: number | null;
@@ -38,6 +42,8 @@ interface GameState extends Snapshot {
   status: GameStatus;
 
   newGame: (size: number, seed?: number) => void;
+  /** Load a validated saved game (see lib/save). */
+  restore: (saved: SavedGame) => void;
   select: (index: number | null) => void;
   move: (dRow: number, dCol: number) => void;
   input: (value: number, asNote?: boolean) => void;
@@ -74,6 +80,8 @@ const initialSpec = specFor(9);
 export const useGame = create<GameState>()((set, get) => ({
   spec: initialSpec,
   seed: 0,
+  id: "",
+  createdAt: 0,
   solution: [],
   givens: [],
   values: [],
@@ -87,6 +95,26 @@ export const useGame = create<GameState>()((set, get) => ({
   elapsed: 0,
   status: "loading",
 
+  restore: (saved) =>
+    set({
+      spec: specFor(saved.size),
+      seed: saved.seed,
+      id: saved.id,
+      createdAt: saved.createdAt,
+      solution: saved.solution,
+      givens: saved.givens,
+      values: saved.values,
+      notes: saved.notes,
+      hinted: saved.hinted,
+      past: saved.past,
+      future: saved.future,
+      selected: saved.selected,
+      notesMode: saved.notesMode,
+      hintsUsed: saved.hintsUsed,
+      elapsed: saved.elapsed,
+      status: saved.status,
+    }),
+
   newGame: (size, seed = randomSeed()) => {
     const spec = specFor(size);
     const rng = createRng(seed);
@@ -96,6 +124,8 @@ export const useGame = create<GameState>()((set, get) => ({
     set({
       spec,
       seed,
+      id: makeGameId(size, seed),
+      createdAt: Date.now(),
       solution,
       values,
       givens: values.map((v) => v !== 0),

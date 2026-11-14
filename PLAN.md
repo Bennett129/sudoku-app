@@ -1,6 +1,6 @@
 # Sudoku — Project Plan
 
-A sudoku web app that is comfortable on a phone and supports grids from 4×4 to 25×25.
+A sudoku web app that is comfortable on a phone and supports grids from 6×6 to 25×25.
 Most sudoku sites are clumsy on mobile and stop at 9×9; this one does neither.
 
 _Last updated: 2026-11-14_
@@ -10,7 +10,7 @@ _Last updated: 2026-11-14_
 ## 1. Goals
 
 - **Mobile-first.** Pinch-zoom and pan on the grid, a number pad that stays in reach, no layout jank.
-- **Many sizes.** Every size N that splits into rectangular boxes, from 4×4 to 25×25.
+- **Many sizes.** Every size N that splits into rectangular boxes, from 6×6 to 25×25.
 - **Size is separate from difficulty.** Any size can be played at any difficulty that size supports.
 - **Every puzzle has exactly one solution.** No guessing required, and difficulty ratings stay meaningful.
 - **Difficulty comes from the logic required**, not from how many cells are filled in.
@@ -20,7 +20,7 @@ _Last updated: 2026-11-14_
 
 | Topic | Decision |
 |---|---|
-| Sizes | 4, 6, 8, 9, 10, 12, 15, 16, 20, 25. **Prime sizes (5, 7, 11, 13…) are out of scope**: they need irregular "jigsaw" regions. |
+| Sizes | 6, 8, 9, 10, 12, 15, 16, 20, 25. **4×4 was dropped**: it only ever needs singles, so difficulty levels can't apply, and 6×6 covers "small and easy". **Prime sizes (5, 7, 11, 13…) are out of scope**: they need irregular "jigsaw" regions. |
 | Box shape | Most-square factor pair, rows ≤ cols (6 → 2×3, 12 → 3×4, 20 → 4×5). |
 | Symbols | 1–9, then A–P. Each value maps to exactly one key. |
 | Solutions | **Exactly one.** Checked after every cell removal. |
@@ -184,7 +184,12 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
 
 ### Phase 2 — Polish and saving locally
 - [x] Add the photos; finalise the palettes; contrast pass; responsive image pipeline
-- [ ] Save the game in progress to IndexedDB; resume on load
+- [x] Save games in progress to IndexedDB (`idb-keyval`); one per grid size, so switching sizes resumes each game; reopen the last played size on load
+  - Saved: board, notes, hints, undo/redo history, timer, selection. Saves at most every 1.5 s while playing, immediately on new game, size switch or solve, and when the tab is hidden or closed
+  - Versioned format; everything read back is validated (`lib/save/serialize.ts`, unit-tested) and a bad save is discarded rather than crashing the board
+  - The size picker marks sizes with a game in progress; **New** asks "Sure?" before replacing a game with progress
+  - Finished games are recorded (size, time, hints) for stats
+- [x] **History**: every game is saved under its own id (`<size>-<seed>`), so starting a new puzzle keeps the old one. The History panel lists games with size, status, progress, time and hints; filters for all, in progress and solved; tap to reopen; remove with a confirming second tap. Keeps the 50 most recent, never pruning a size's current game. Saves from the old one-per-size format are upgraded automatically on load
 - [x] Prevent the theme flashing on first paint (inline script that sets `data-theme` before hydration)
 - [ ] Double-tap a box to zoom into it
 - [ ] Notes on big grids: show notes only when zoomed in enough to read them (show a dot otherwise)

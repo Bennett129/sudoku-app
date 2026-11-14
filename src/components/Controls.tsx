@@ -18,29 +18,30 @@ function Toolbar() {
   const undosLeft = useGame((s) => s.past.length);
   const canRedo = useGame((s) => s.future.length > 0);
   const hintsUsed = useGame((s) => s.hintsUsed);
+  const solved = useGame((s) => s.status === "solved");
   const { undo, redo, erase, toggleNotesMode, hint } = useGame.getState();
   const undoLimit = useSettings((s) => s.undoLimit);
 
   return (
     <div className="grid grid-cols-5 gap-2">
-      <Tool label="Undo" onClick={undo} disabled={undosLeft === 0} badge={undoLimit === null ? undefined : String(undosLeft)}>
+      <Tool label="Undo" onClick={undo} disabled={solved || undosLeft === 0} badge={undoLimit === null ? undefined : String(undosLeft)}>
         <path d="M9 14 4 9l5-5" />
         <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
       </Tool>
-      <Tool label="Redo" onClick={redo} disabled={!canRedo}>
+      <Tool label="Redo" onClick={redo} disabled={solved || !canRedo}>
         <path d="m15 14 5-5-5-5" />
         <path d="M20 9H9a5 5 0 0 0 0 10h3" />
       </Tool>
-      <Tool label="Erase" onClick={erase}>
+      <Tool label="Erase" onClick={erase} disabled={solved}>
         <path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L13 21" />
         <path d="M22 21H7" />
         <path d="m5 11 9 9" />
       </Tool>
-      <Tool label="Notes" onClick={toggleNotesMode} active={notesMode} badge={notesMode ? "on" : "off"}>
+      <Tool label="Notes" onClick={toggleNotesMode} disabled={solved} active={notesMode} badge={notesMode ? "on" : "off"}>
         <path d="M12 20h9" />
         <path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
       </Tool>
-      <Tool label="Hint" onClick={hint} badge={hintsUsed ? String(hintsUsed) : undefined}>
+      <Tool label="Hint" onClick={hint} disabled={solved} badge={hintsUsed ? String(hintsUsed) : undefined}>
         <path d="M9 18h6" />
         <path d="M10 22h4" />
         <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z" />

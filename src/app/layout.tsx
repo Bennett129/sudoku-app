@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Sudoku",
-  description: "Mobile-friendly sudoku from 4×4 to 25×25.",
+  description: "Mobile-friendly sudoku from 6×6 to 25×25.",
 };
 
 // Browser zoom stays enabled (no maximum-scale) for accessibility;
