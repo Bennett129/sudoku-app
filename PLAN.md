@@ -194,7 +194,9 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
 - [ ] Double-tap a box to zoom into it
 - [ ] Notes on big grids: show notes only when zoomed in enough to read them (show a dot otherwise)
 - [ ] "Fill all candidates" action
-- [ ] Solved screen; per-size/difficulty stats (best and average time, solves without hints)
+- [x] Solved screen: card over the board (time, hints, "New best time" / "First N×N solve" badge, that size's solved count, best and average) with **New** and **View board**; only for games finished in this session
+- [x] Stats tab in the History panel: totals (solved, without hints, time played) and a per-size table (solved, best, average). Best times count hint-free solves only. Pure, unit-tested `lib/stats.ts`
+- [ ] Add difficulty to stats once puzzles are graded (phase 3)
 - [ ] Playwright e2e on iPhone/Pixel emulation; GitHub Actions CI
 
 ### Phase 3 — Real puzzles

@@ -11,6 +11,7 @@ import { Header } from "./Header";
 import { AccountDialog } from "./AccountDialog";
 import { HistoryDialog } from "./HistoryDialog";
 import { SettingsDialog } from "./SettingsDialog";
+import { SolvedCard } from "./SolvedCard";
 import { ZoomableBoard } from "./ZoomableBoard";
 
 export function GameScreen() {
@@ -43,7 +44,11 @@ export function GameScreen() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
         {/* Board area: a size container so the square board fits both width and height. */}
         <section className="grid min-h-0 flex-1 place-items-center [container-type:size]">
-          <ZoomableBoard key={seed} />
+          {/* Board and solved card share one grid cell so the card sits on top. */}
+          <div className="[grid-area:1/1]">
+            <ZoomableBoard key={seed} />
+          </div>
+          <SolvedCard />
         </section>
 
         <aside className="frost shrink-0 rounded-2xl p-3 lg:flex lg:w-80 lg:flex-col lg:justify-center">

@@ -74,8 +74,8 @@ export function Header({
       <button
         type="button"
         onClick={onOpenHistory}
-        aria-label="History"
-        title="History"
+        aria-label="History and stats"
+        title="History and stats"
         className="rounded-lg p-1 text-ink hover:bg-key"
       >
         <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

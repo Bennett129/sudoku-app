@@ -243,3 +243,27 @@ body {
 }
 .notes > span { display: grid; place-items: center; }
 .notes > span[data-match] { color: var(--accent); font-weight: 800; }
+
+/* Entrance for the solved card. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+.animate-pop {
+  animation: pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop {
+    animation: none;
+  }
+}
+
+/* Near-opaque panel for content that sits on top of the board (solved card). */
+.solid-card {
+  background: color-mix(in srgb, var(--cell) 92%, transparent);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}

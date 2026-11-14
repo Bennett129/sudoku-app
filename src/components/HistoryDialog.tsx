@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { GameSummary } from "@/lib/save/serialize";
-import { listGames, MAX_GAMES } from "@/lib/save/storage";
+import type { CompletedGame, GameSummary } from "@/lib/save/serialize";
+import { listGames, loadCompleted, MAX_GAMES } from "@/lib/save/storage";
+import { computeStats } from "@/lib/stats";
 import { deleteGame, openGame, useSaves } from "@/store/autosave";
 import { formatTime, useGame } from "@/store/game";
 
@@ -17,7 +18,9 @@ const FILTERS: { id: Filter; label: string }[] = [
 /** Past games saved on this device; tap one to reopen it. */
 export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const [view, setView] = useState<"games" | "stats">("games");
   const [games, setGames] = useState<GameSummary[] | null>(null);
+  const [completed, setCompleted] = useState<CompletedGame[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const revision = useSaves((s) => s.revision);
   const currentId = useGame((s) => s.id);
@@ -34,6 +37,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
     if (!open) return;
     let cancelled = false;
     void listGames().then((list) => !cancelled && setGames(list));
+    void loadCompleted().then((list) => !cancelled && setCompleted(list));
     return () => {
       cancelled = true;
     };
@@ -46,63 +50,133 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      aria-labelledby="history-title"
+      aria-label="History and stats"
       className="frost m-auto w-[min(94vw,30rem)] rounded-2xl p-0 text-ink backdrop:bg-black/40 backdrop:backdrop-blur-sm"
     >
       <div className="flex max-h-[min(80dvh,40rem)] flex-col gap-3 p-5">
         <div className="flex items-center justify-between">
-          <h2 id="history-title" className="text-lg font-semibold">
-            History
-          </h2>
+          <div role="tablist" aria-label="View" className="flex gap-4">
+            {(["games", "stats"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`border-b-2 pb-0.5 text-lg font-semibold transition ${
+                  view === v ? "border-accent text-ink" : "border-transparent text-ink-muted hover:text-ink"
+                }`}
+              >
+                {v === "games" ? "Games" : "Stats"}
+              </button>
+            ))}
+          </div>
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm hover:bg-key">
             Close
           </button>
         </div>
 
-        <div role="tablist" aria-label="Filter games" className="flex gap-1 rounded-xl bg-key p-1 text-sm">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.id}
-              onClick={() => setFilter(f.id)}
-              className={`flex-1 rounded-lg py-1.5 font-medium transition ${
-                filter === f.id ? "bg-accent text-accent-ink shadow-sm" : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {view === "stats" ? (
+          <StatsView records={completed} />
+        ) : (
+          <>
+            <div role="tablist" aria-label="Filter games" className="flex gap-1 rounded-xl bg-key p-1 text-sm">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`flex-1 rounded-lg py-1.5 font-medium transition ${
+                    filter === f.id ? "bg-accent text-accent-ink shadow-sm" : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
 
-        <ul className="-mx-1 flex min-h-0 flex-col gap-2 overflow-y-auto px-1 py-1">
-          {games === null ? (
-            <li className="py-6 text-center text-sm text-ink-muted">Loading…</li>
-          ) : shown.length === 0 ? (
-            <li className="py-6 text-center text-sm text-ink-muted">
-              {filter === "all" ? "No games yet." : filter === "playing" ? "No games in progress." : "No solved games yet."}
-            </li>
-          ) : (
-            shown.map((g) => (
-              <HistoryRow
-                key={g.id}
-                game={g}
-                current={g.id === currentId}
-                onOpen={async () => {
-                  if (await openGame(g.id)) onClose();
-                }}
-                onRemove={() => void deleteGame(g.id)}
-              />
-            ))
-          )}
-        </ul>
+            <ul className="-mx-1 flex min-h-0 flex-col gap-2 overflow-y-auto px-1 py-1">
+              {games === null ? (
+                <li className="py-6 text-center text-sm text-ink-muted">Loading…</li>
+              ) : shown.length === 0 ? (
+                <li className="py-6 text-center text-sm text-ink-muted">
+                  {filter === "all" ? "No games yet." : filter === "playing" ? "No games in progress." : "No solved games yet."}
+                </li>
+              ) : (
+                shown.map((g) => (
+                  <HistoryRow
+                    key={g.id}
+                    game={g}
+                    current={g.id === currentId}
+                    onOpen={async () => {
+                      if (await openGame(g.id)) onClose();
+                    }}
+                    onRemove={() => void deleteGame(g.id)}
+                  />
+                ))
+              )}
+            </ul>
 
-        <p className="text-xs text-ink-muted">
-          Saved on this device. The {MAX_GAMES} most recent games are kept.
-        </p>
+            <p className="text-xs text-ink-muted">
+              Saved on this device. The {MAX_GAMES} most recent games are kept.
+            </p>
+          </>
+        )}
       </div>
     </dialog>
+  );
+}
+
+function StatsView({ records }: { records: CompletedGame[] | null }) {
+  if (records === null) return <p className="py-6 text-center text-sm text-ink-muted">Loading…</p>;
+  const stats = computeStats(records);
+  if (stats.solved === 0)
+    return <p className="py-8 text-center text-sm text-ink-muted">Finish a puzzle to start tracking stats.</p>;
+
+  return (
+    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+      <dl className="grid grid-cols-3 gap-2 text-sm">
+        <Summary label="Solved" value={String(stats.solved)} />
+        <Summary label="No hints" value={String(stats.noHintSolved)} />
+        <Summary label="Time played" value={formatTime(stats.totalTime)} />
+      </dl>
+
+      <table className="w-full text-sm tabular-nums">
+        <thead>
+          <tr className="text-left text-xs text-ink-muted">
+            <th className="py-1 font-medium">Size</th>
+            <th className="py-1 text-right font-medium">Solved</th>
+            <th className="py-1 text-right font-medium">Best</th>
+            <th className="py-1 text-right font-medium">Average</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stats.bySize.map((s) => (
+            <tr key={s.size} className="border-t border-panel-border">
+              <td className="py-2 font-medium">
+                {s.size}×{s.size}
+              </td>
+              <td className="py-2 text-right">{s.solved}</td>
+              <td className="py-2 text-right font-mono">{s.bestTime === null ? "—" : formatTime(s.bestTime)}</td>
+              <td className="py-2 text-right font-mono">{formatTime(s.averageTime)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <p className="text-xs text-ink-muted">Best times count solves without hints. Stats are kept on this device.</p>
+    </div>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-xl bg-key px-3 py-2">
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className="font-mono text-lg font-semibold tabular-nums">{value}</dd>
+    </div>
   );
 }
 
