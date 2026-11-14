@@ -27,6 +27,9 @@ const currentKey = (size: number) => `meta:current:${size}`;
 const INDEX = "meta:index";
 const LAST_SIZE = "meta:lastSize";
 const COMPLETED = "completed";
+/** Bank puzzle ids already dealt to this device, so the bank doesn't repeat them. */
+const SEEN_BANK = "meta:seenBank";
+const MAX_SEEN_BANK = 300;
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -118,6 +121,19 @@ export const recordCompleted = (game: CompletedGame) =>
 
 export const loadCompleted = () =>
   safe(async () => ((await get(COMPLETED, db())) as CompletedGame[] | undefined) ?? [], [] as CompletedGame[]);
+
+export const loadSeenBankIds = () =>
+  safe(async () => {
+    const list = await get(SEEN_BANK, db());
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : [];
+  }, [] as string[]);
+
+export const markBankSeen = (id: string) =>
+  safe(
+    () =>
+      update<string[]>(SEEN_BANK, (list = []) => [...list.filter((x) => x !== id), id].slice(-MAX_SEEN_BANK), db()),
+    undefined,
+  );
 
 /** Upgrade v1 saves and remove games for sizes no longer offered. Safe to run every boot. */
 export const migrateLegacySaves = () =>

@@ -169,6 +169,15 @@ test.describe("finishing", () => {
   });
 });
 
+test.describe("share links", () => {
+  test("a link to a puzzle that doesn't exist falls back with a notice", async ({ page }) => {
+    await page.goto("/p/zzzzzzzz");
+    await expect(page.getByText("That puzzle link couldn't be opened")).toBeVisible({ timeout: GENERATE_TIMEOUT });
+    await expect(page.locator(".cell")).toHaveCount(81, { timeout: GENERATE_TIMEOUT });
+    await expect(page).toHaveURL(/\/$/);
+  });
+});
+
 test.describe("layout", () => {
   test("no horizontal scrolling and the board fits the screen", async ({ page }) => {
     await openApp(page);

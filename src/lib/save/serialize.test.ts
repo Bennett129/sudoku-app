@@ -12,6 +12,7 @@ function sampleState(size = 6) {
     id: makeGameId(size, 42),
     createdAt: 500,
     difficulty: "medium" as const,
+    bankId: "k3x9q2ab" as string | null,
     solution,
     givens: values.map((v) => v !== 0),
     ...snap,

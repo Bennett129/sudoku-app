@@ -210,10 +210,15 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
 - Measured (desktop): 9×9 Easy/Medium/Expert ≈ 0.02–0.1 s, Hard median 0.7 s (29/30 within 2.5 s); 25×25 Easy ≈ 0.6 s up to Expert ≈ 8 s.
 - [ ] Later: Simple Coloring, Unique Rectangle (needs care: assumes uniqueness), chains
 
-### Phase 4 — Puzzle bank
-- [ ] Postgres + Prisma schema; API route to fetch an unplayed puzzle
-- [ ] Generation script + scheduled top-up job; pre-generated 20×20 and 25×25 sets
-- [ ] Puzzle IDs in the URL
+### Phase 4 — Puzzle bank ✅
+- [x] `puzzle` table (Prisma): short random id, size, rated difficulty, givens and solution in a compact text form (`engine/encode.ts`, one character per cell), technique counts; unique on givens, indexed on size + difficulty
+- [x] `GET /api/puzzles/next?size&difficulty&exclude` (random puzzle the device hasn't had; the device remembers the last 300 bank ids) and `GET /api/puzzles/<id>`; inputs validated; 404 when empty, 503 when the database is down
+- [x] Client tries the bank first (2 s timeout), else generates in the worker, so it works offline and in CI without a database. Bank responses are validated before use
+- [x] `npm run bank:fill` tops up every size × difficulty to a target; puzzles that come out easier than intended are stored under their real rating if that bucket needs them. Each is re-verified with `verifyUnique`: logical proof (sound grader reaches the stored solution) plus a brute-force check that rejects any second solution
+- [x] Scheduled GitHub Action (`bank.yml`, weekly + manual) runs migrations and the fill script against the `DATABASE_URL` repository secret; skips itself until the secret exists
+- [x] Share links `/p/<id>`: open the bank puzzle, or this device's saved copy of it; "Challenge a friend" on the solved card and a share icon in History (system share sheet on phones, clipboard elsewhere); a broken link falls back with a notice
+- Fixes found along the way: clue give-back could leave far too many givens (a "Hard" 9×9 with 49), so results are now trimmed back to the sparsest puzzle at the same rating (Hard 9×9 now 22–27 givens); the brute-force solver also branches on hidden singles, making 16×16 and 20×20 checks tractable (25×25 relies on the logical proof)
+- [ ] Production: create a hosted Postgres (Neon/Supabase), add `DATABASE_URL` as a repository secret, run the workflow once
 
 ### Phase 5 — Accounts and sync
 - [x] Better Auth email-code sign-in (Resend; console fallback in dev); codes hashed, 10-minute expiry, 5 attempts; rate limits stored in the DB; 30-day sessions

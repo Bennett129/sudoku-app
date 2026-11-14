@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { valueForKeyCode } from "@/lib/engine";
 import { themeById } from "@/lib/themes";
 import { bootGame, startAutosave } from "@/store/autosave";
@@ -19,11 +20,14 @@ export function GameScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Set on /p/<id> share links.
+  const sharedId = useParams<{ id?: string }>()?.id;
   const seed = useGame((s) => s.seed);
   const status = useGame((s) => s.status);
   const theme = useSettings((s) => s.theme);
 
-  useBoot();
+  useBoot(sharedId, () => setNotice("That puzzle link couldn't be opened, so here's your last game instead."));
   useDevicePixelRatio();
   useTimer();
   useKeyboard(settingsOpen || accountOpen || historyOpen);
@@ -41,6 +45,15 @@ export function GameScreen() {
         onOpenAccount={() => setAccountOpen(true)}
         onOpenHistory={() => setHistoryOpen(true)}
       />
+
+      {notice && (
+        <div role="status" className="frost flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="rounded-lg px-2 py-0.5 hover:bg-key">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
         {/* Board area: a size container so the square board fits both width and height. */}
@@ -89,12 +102,18 @@ function Solved() {
 }
 
 /** Client-only start-up: load saved settings, then deal the first puzzle. */
-function useBoot() {
+function useBoot(sharedId: string | undefined, onShareFailed: () => void) {
   useEffect(() => {
     void useSettings.persist.rehydrate();
     const stopAutosave = startAutosave();
-    void bootGame();
+    void bootGame(sharedId).then((ok) => {
+      if (!ok) onShareFailed();
+      // Once a shared puzzle is open (and saved), drop the /p/<id> from the address.
+      if (sharedId) window.history.replaceState(null, "", "/");
+    });
     return stopAutosave;
+    // Boot once per page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 

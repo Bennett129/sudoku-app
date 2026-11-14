@@ -3,7 +3,7 @@ import { bitOf, combinations, popcount, valuesOf } from "./bits";
 import { DIFFICULTIES, difficultiesFor, effectiveDifficulty, grade, levelOf } from "./grader";
 import { generateOnce, generatePuzzle } from "./puzzle";
 import { createRng } from "./random";
-import { countSolutions, hasUniqueSolution } from "./solver";
+import { countSolutions, hasUniqueSolution, verifyUnique } from "./solver";
 import { generateSolution, makeDisplayPuzzle } from "./generate";
 import { specFor } from "./sizes";
 import * as T from "./techniques";
@@ -89,11 +89,11 @@ describe("grader", () => {
   });
 
   it("never makes an unsound deduction (checked after every move)", () => {
-    for (const size of [6, 9]) {
+    for (const size of [6, 9, 16]) {
       const spec = specFor(size);
-      for (let seed = 1; seed <= 25; seed++) {
+      for (let seed = 1; seed <= (size === 16 ? 6 : 25); seed++) {
         const solution = generateSolution(spec, createRng(seed));
-        const puzzle = makeDisplayPuzzle(solution, createRng(seed + 1000), 0.3);
+        const puzzle = makeDisplayPuzzle(solution, createRng(seed + 1000), size === 16 ? 0.45 : 0.3);
         if (!hasUniqueSolution(spec, puzzle)) continue; // soundness only makes sense with one answer
         grade(spec, puzzle, {
           onStep: (t, s) => {
@@ -105,6 +105,24 @@ describe("grader", () => {
         });
       }
     }
+  });
+});
+
+describe("verifyUnique", () => {
+  it("accepts generated puzzles and rejects ambiguous or wrong ones", () => {
+    const spec = specFor(9);
+    const g = generateOnce(spec, 11, "hard");
+    expect(verifyUnique(spec, g.puzzle, g.solution)).toBe(true);
+    const wrong = g.solution.slice();
+    [wrong[0], wrong[1]] = [wrong[1], wrong[0]];
+    expect(verifyUnique(spec, g.puzzle, wrong)).toBe(false);
+    expect(verifyUnique(spec, new Array(81).fill(0), g.solution)).toBe(false);
+  });
+
+  it("verifies big generated grids via the logical proof", () => {
+    const spec = specFor(25);
+    const g = generateOnce(spec, 1, "easy");
+    expect(verifyUnique(spec, g.puzzle, g.solution)).toBe(true);
   });
 });
 
@@ -139,5 +157,24 @@ describe("generator", () => {
   it("is reproducible from a seed", () => {
     const spec = specFor(9);
     expect(generateOnce(spec, 7, "medium").puzzle).toEqual(generateOnce(spec, 7, "medium").puzzle);
+  });
+});
+
+describe("grid encoding", () => {
+  it("round-trips 9×9 and 25×25 grids", async () => {
+    const { encodeGrid, decodeGrid } = await import("./encode");
+    for (const size of [9, 25]) {
+      const grid = generateSolution(specFor(size), createRng(5)).map((v, i) => (i % 4 === 0 ? 0 : v));
+      const text = encodeGrid(grid);
+      expect(text).toHaveLength(size * size);
+      expect(decodeGrid(text, size)).toEqual(grid);
+    }
+  });
+
+  it("rejects malformed text", async () => {
+    const { decodeGrid } = await import("./encode");
+    expect(decodeGrid("123", 9)).toBeNull();
+    expect(decodeGrid("A".repeat(81), 9)).toBeNull(); // A = 10, too big for 9×9
+    expect(decodeGrid(".".repeat(16), 4)).toBeNull(); // size not offered
   });
 });

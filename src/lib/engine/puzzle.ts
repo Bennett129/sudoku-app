@@ -46,7 +46,6 @@ export interface GenerateOptions {
   now?: () => number;
 }
 
-/** One pass: random grid, technique-bounded removal, then grade. */
 /** Remove cells in random order while the puzzle stays solvable with techniques up to `maxLevel`. */
 function removeCells(spec: GridSpec, solution: readonly number[], rng: Rng, maxLevel: number, limit: number): number[] {
   const puzzle = solution.slice();
@@ -79,6 +78,23 @@ function addCluesUntil(spec: GridSpec, puzzle: readonly number[], solution: read
   return null;
 }
 
+/**
+ * Giving clues back can pile up far more than needed (a "hard" 9×9 with 49
+ * givens). Take clues away again wherever the puzzle still rates exactly at
+ * the target, leaving it as sparse as that difficulty allows.
+ */
+function trimAtLevel(spec: GridSpec, puzzle: readonly number[], rng: Rng, target: number) {
+  const p = puzzle.slice();
+  for (const i of shuffled(range(p.length), rng)) {
+    if (p[i] === 0) continue;
+    const v = p[i];
+    p[i] = 0;
+    const r = grade(spec, p, { maxLevel: target });
+    if (!(r.solved && r.level === target)) p[i] = v;
+  }
+  return { puzzle: p, result: grade(spec, p, { maxLevel: target }) };
+}
+
 export function generateOnce(spec: GridSpec, seed: number, target: Difficulty): Omit<GeneratedPuzzle, "attempts" | "target"> {
   const rng = createRng(seed);
   const solution = generateSolution(spec, rng);
@@ -102,7 +118,7 @@ export function generateOnce(spec: GridSpec, seed: number, target: Difficulty): 
       for (let tries = 0; tries < 3; tries++) {
         const walked = addCluesUntil(spec, deep, solution, rng, want);
         if (walked) {
-          ({ puzzle, result } = walked);
+          ({ puzzle, result } = trimAtLevel(spec, walked.puzzle, rng, want));
           break;
         }
       }

@@ -10,7 +10,8 @@ import {
   type Difficulty,
   type GridSpec,
 } from "@/lib/engine";
-import { requestPuzzle } from "@/lib/generate-client";
+import { dealPuzzle, type DealtPuzzle } from "@/lib/generate-client";
+import { markBankSeen } from "@/lib/save/storage";
 import { makeGameId, type SavedGame } from "@/lib/save/serialize";
 import { useSettings } from "./settings";
 
@@ -45,9 +46,13 @@ interface GameState extends Snapshot {
   difficulty: Difficulty | null;
   /** Set while a new puzzle is being generated in the background. */
   generating: { size: number; difficulty: Difficulty } | null;
+  /** Puzzle-bank id when the puzzle came from the bank (shareable as /p/<id>). */
+  bankId: string | null;
 
-  /** Generate a new puzzle (in a Web Worker). Defaults to the preferred difficulty. */
+  /** Deal a new puzzle (bank first, else generated in a worker). Defaults to the preferred difficulty. */
   newGame: (size: number, difficulty?: Difficulty) => Promise<void>;
+  /** Start a specific, already-fetched puzzle (e.g. from a share link). */
+  startPuzzle: (dealt: DealtPuzzle) => void;
   /** Load a validated saved game (see lib/save). */
   restore: (saved: SavedGame) => void;
   select: (index: number | null) => void;
@@ -107,6 +112,7 @@ export const useGame = create<GameState>()((set, get) => ({
   status: "loading",
   difficulty: null,
   generating: null,
+  bankId: null,
 
   restore: (saved) => {
     generation++; // cancel any puzzle still being generated
@@ -128,6 +134,7 @@ export const useGame = create<GameState>()((set, get) => ({
       elapsed: saved.elapsed,
       status: saved.status,
       difficulty: saved.difficulty,
+      bankId: saved.bankId,
       generating: null,
     });
   },
@@ -136,28 +143,36 @@ export const useGame = create<GameState>()((set, get) => ({
     const difficulty = effectiveDifficulty(size, preferred);
     const token = ++generation;
     set({ generating: { size, difficulty } });
-    const seed = randomSeed();
-    let puzzle;
+    let dealt: DealtPuzzle;
     try {
-      puzzle = await requestPuzzle(size, seed, difficulty);
+      dealt = await dealPuzzle(size, randomSeed(), difficulty);
     } catch (error) {
       console.error("[generate] failed:", error);
       if (token === generation) set({ generating: null });
       return;
     }
     if (token !== generation) return; // superseded by another new game, size switch or restore
-    const values = puzzle.puzzle;
+    get().startPuzzle(dealt);
+  },
+
+  startPuzzle: (dealt) => {
+    generation++;
+    const size = Math.round(Math.sqrt(dealt.puzzle.length));
     const cells = size * size;
+    const seed = randomSeed();
+    if (dealt.bankId) void markBankSeen(dealt.bankId);
     set({
       spec: specFor(size),
       seed,
-      id: makeGameId(size, seed),
+      // Bank puzzles get a stable id so a shared link reopens the same saved game.
+      id: dealt.bankId ? `p-${dealt.bankId}` : makeGameId(size, seed),
+      bankId: dealt.bankId,
       createdAt: Date.now(),
-      solution: puzzle.solution,
-      values,
-      difficulty: puzzle.difficulty,
+      solution: dealt.solution,
+      values: dealt.puzzle,
+      difficulty: dealt.difficulty,
       generating: null,
-      givens: values.map((v) => v !== 0),
+      givens: dealt.puzzle.map((v) => v !== 0),
       notes: new Array(cells).fill(0),
       hinted: new Array(cells).fill(false),
       selected: null,

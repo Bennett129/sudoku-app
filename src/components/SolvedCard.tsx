@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { CompletedGame } from "@/lib/save/serialize";
 import { loadCompleted } from "@/lib/save/storage";
 import { puzzleLabel } from "@/lib/labels";
+import { sharePuzzle } from "@/lib/share";
 import { computeStats, solveBadge, statsFor } from "@/lib/stats";
 import { formatTime, useGame } from "@/store/game";
 
@@ -19,6 +20,8 @@ export function SolvedCard() {
   const elapsed = useGame((s) => s.elapsed);
   const hintsUsed = useGame((s) => s.hintsUsed);
   const difficulty = useGame((s) => s.difficulty);
+  const bankId = useGame((s) => s.bankId);
+  const [shareLabel, setShareLabel] = useState<string | null>(null);
   const [solvedId, setSolvedId] = useState<string | null>(null);
   const [solvedAt, setSolvedAt] = useState(0);
   const [records, setRecords] = useState<CompletedGame[] | null>(null);
@@ -94,6 +97,18 @@ export function SolvedCard() {
           >
             View board
           </button>
+          {bankId && (
+            <button
+              type="button"
+              onClick={async () => {
+                const result = await sharePuzzle(bankId, puzzleLabel(size, difficulty));
+                setShareLabel(result === "copied" ? "Link copied" : result === "failed" ? "Couldn't share" : null);
+              }}
+              className="text-sm font-medium text-ink-muted underline-offset-2 hover:underline"
+            >
+              {shareLabel ?? "Challenge a friend with this puzzle"}
+            </button>
+          )}
         </div>
       </div>
     </div>

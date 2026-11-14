@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { CompletedGame, GameSummary } from "@/lib/save/serialize";
 import { listGames, loadCompleted, MAX_GAMES } from "@/lib/save/storage";
-import { difficultyLabel } from "@/lib/labels";
+import { difficultyLabel, puzzleLabel } from "@/lib/labels";
+import { sharePuzzle } from "@/lib/share";
 import { computeStats } from "@/lib/stats";
 import { deleteGame, openGame, useSaves } from "@/store/autosave";
 import { formatTime, useGame } from "@/store/game";
@@ -184,6 +185,7 @@ function Summary({ label, value }: { label: string; value: string }) {
 function HistoryRow(props: { game: GameSummary; current: boolean; onOpen: () => void; onRemove: () => void }) {
   const { game: g, current } = props;
   const [confirming, setConfirming] = useState(false);
+  const [copied, setCopied] = useState(false);
   const solved = g.status === "solved";
   const pct = Math.round((g.filled / g.total) * 100);
 
@@ -195,7 +197,8 @@ function HistoryRow(props: { game: GameSummary; current: boolean; onOpen: () => 
 
   return (
     <li
-      className={`group relative flex items-stretch overflow-hidden rounded-xl bg-key transition hover:bg-key-hover ${
+      // shrink-0: with many games the list must scroll, not squash its rows.
+      className={`group relative flex shrink-0 items-stretch overflow-hidden rounded-xl bg-key transition hover:bg-key-hover ${
         current ? "ring-2 ring-accent" : ""
       }`}
     >
@@ -228,6 +231,31 @@ function HistoryRow(props: { game: GameSummary; current: boolean; onOpen: () => 
           </span>
         </span>
       </button>
+      {g.bankId && (
+        <button
+          type="button"
+          onClick={async () => {
+            const result = await sharePuzzle(g.bankId!, puzzleLabel(g.size, g.difficulty));
+            if (result === "copied") {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }
+          }}
+          aria-label={`Share ${g.size}×${g.size} puzzle`}
+          title="Share puzzle link"
+          className="shrink-0 px-2 text-xs font-medium text-ink-muted hover:text-ink"
+        >
+          {copied ? (
+            "Copied"
+          ) : (
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
+              <path d="m16 6-4-4-4 4" />
+              <path d="M12 2v13" />
+            </svg>
+          )}
+        </button>
+      )}
       {!current && (
         <button
           type="button"

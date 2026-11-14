@@ -10,6 +10,7 @@ See [PLAN.md](./PLAN.md) for goals, decisions and the roadmap.
 npm install
 cp .env.example .env   # then fill in DATABASE_URL and BETTER_AUTH_SECRET
 npm run db:migrate     # creates the database tables
+npm run bank:fill      # optional: pre-generate puzzles into the bank
 npm run dev            # http://localhost:3000
 npm test           # unit tests (Vitest)
 npm run test:e2e   # end-to-end tests (Playwright; builds the app)

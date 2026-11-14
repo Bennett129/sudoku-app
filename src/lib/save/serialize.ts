@@ -35,6 +35,8 @@ export interface SavedGame extends SavedSnapshot {
   status: "playing" | "solved";
   /** Graded difficulty; null for games saved before puzzles were graded. */
   difficulty: Difficulty | null;
+  /** Puzzle-bank id (shareable), or null for locally generated puzzles. */
+  bankId: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -45,6 +47,7 @@ export interface GameSummary {
   size: number;
   status: "playing" | "solved";
   difficulty: Difficulty | null;
+  bankId: string | null;
   /** Cells filled (givens + entries). */
   filled: number;
   total: number;
@@ -96,6 +99,7 @@ export function toSavedGame(state: GameLike, now = Date.now()): SavedGame | null
     elapsed: state.elapsed,
     status: state.status,
     difficulty: state.difficulty,
+    bankId: state.bankId,
     createdAt: state.createdAt,
     updatedAt: now,
   };
@@ -107,6 +111,7 @@ export function summarize(game: SavedGame): GameSummary {
     size: game.size,
     status: game.status,
     difficulty: game.difficulty,
+    bankId: game.bankId,
     filled: game.values.filter((v) => v !== 0).length,
     total: game.size * game.size,
     elapsed: game.elapsed,
@@ -169,6 +174,7 @@ export function parseSavedGame(x: unknown): SavedGame | null {
     elapsed: x.elapsed,
     status: x.status,
     difficulty: DIFFICULTIES.includes(x.difficulty as Difficulty) ? (x.difficulty as Difficulty) : null,
+    bankId: typeof x.bankId === "string" && /^[0-9a-z]{8}$/.test(x.bankId) ? x.bankId : null,
     createdAt: isInt(x.createdAt, 0) ? x.createdAt : updatedAt,
     updatedAt,
   };

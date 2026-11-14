@@ -12,6 +12,7 @@ import { create } from "zustand";
 import { SUPPORTED_SIZES } from "@/lib/engine";
 import { toSavedGame } from "@/lib/save/serialize";
 import * as storage from "@/lib/save/storage";
+import { fetchSharedPuzzle } from "@/lib/generate-client";
 import { useGame } from "./game";
 
 const SAVE_INTERVAL = 1500;
@@ -121,12 +122,35 @@ export async function deleteGame(id: string): Promise<void> {
   await refreshSaves();
 }
 
-/** First load: upgrade old saves, then reopen the last played size (or 9×9). */
-export async function bootGame(): Promise<void> {
+/**
+ * Open a shared bank puzzle (/p/<id>): resume this device's saved copy if
+ * there is one, otherwise fetch it from the bank. False if it can't be found.
+ */
+export async function openShared(bankId: string): Promise<boolean> {
+  if (dirty) await saveNow();
+  const saved = await storage.loadGame(`p-${bankId}`);
+  if (saved) {
+    useGame.getState().restore(saved);
+    return true;
+  }
+  const dealt = await fetchSharedPuzzle(bankId);
+  if (!dealt) return false;
+  useGame.getState().startPuzzle(dealt);
+  return true;
+}
+
+/**
+ * First load: upgrade old saves, then open the shared puzzle if the URL has
+ * one, else reopen the last played size (or 9×9). Returns false if a shared
+ * puzzle was requested but couldn't be opened.
+ */
+export async function bootGame(sharedId?: string): Promise<boolean> {
   await storage.migrateLegacySaves();
   const lastSize = await storage.loadLastSize();
   await refreshSaves();
-  if (useGame.getState().status !== "loading") return; // the player already started something
+  if (sharedId && (await openShared(sharedId))) return true;
+  if (useGame.getState().status !== "loading") return !sharedId; // the player already started something
   const size = SUPPORTED_SIZES.includes(lastSize as (typeof SUPPORTED_SIZES)[number]) ? lastSize! : DEFAULT_SIZE;
   await openSize(size);
+  return !sharedId;
 }

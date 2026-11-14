@@ -1,0 +1,48 @@
+name: Top up puzzle bank
+
+# Generates puzzles into the production database so new games (especially
+# 20×20 and 25×25) open instantly. Big grids take seconds each, so this runs
+# here rather than in a serverless function.
+#
+# Needs a repository secret DATABASE_URL (Settings → Secrets and variables →
+# Actions). Until it exists, every step is skipped.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Time limit (minutes)"
+        default: "50"
+
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Check configuration
+        if: env.DATABASE_URL == ''
+        run: echo "::notice::DATABASE_URL secret not set; skipping."
+
+      - uses: actions/checkout@v7
+        if: env.DATABASE_URL != ''
+
+      - uses: actions/setup-node@v7
+        if: env.DATABASE_URL != ''
+        with:
+          node-version: 24
+          cache: npm
+
+      - if: env.DATABASE_URL != ''
+        run: npm ci
+
+      - name: Apply database migrations
+        if: env.DATABASE_URL != ''
+        run: npx prisma migrate deploy
+
+      - name: Fill the bank
+        if: env.DATABASE_URL != ''
+        run: npm run bank:fill -- --minutes ${{ inputs.minutes || '50' }}

@@ -1,7 +1,8 @@
 // Database schema. Auth tables follow Better Auth's core schema
 // (user, session, account, verification) plus rateLimit for
 // database-backed rate limiting, which works on serverless hosts.
-// Puzzle-bank and saved-game tables arrive in phase 4.
+// The puzzle bank (phase 4) stores pre-generated, graded puzzles so new games
+// open instantly and can be shared by link.
 
 generator client {
   provider = "prisma-client"
@@ -80,4 +81,22 @@ model RateLimit {
   lastRequest BigInt
 
   @@map("rateLimit")
+}
+
+/// A pre-generated puzzle with exactly one solution, graded by the human-style grader.
+model Puzzle {
+  /// Short random id used in share links (/p/<id>).
+  id         String   @id
+  size       Int
+  /// easy | medium | hard | expert (the grader's actual rating)
+  difficulty String
+  /// One character per cell: 1–9, A–P; "." for empty.
+  givens     String   @unique
+  solution   String
+  /// How often each technique was needed, e.g. { "x-wing": 1 }.
+  techniques Json
+  createdAt  DateTime @default(now())
+
+  @@index([size, difficulty])
+  @@map("puzzle")
 }

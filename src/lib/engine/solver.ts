@@ -8,6 +8,7 @@
  */
 import { bitOf, popcount } from "./bits";
 import type { GridSpec } from "./sizes";
+import { grade } from "./grader";
 import { unitsFor } from "./units";
 
 export interface CountResult {
@@ -21,7 +22,7 @@ export function countSolutions(
   spec: GridSpec,
   puzzle: readonly number[],
   limit = 2,
-  maxNodes = 2_000_000,
+  maxNodes = 200_000,
 ): CountResult {
   const n = spec.size;
   const { rowOf, colOf, boxOf } = unitsFor(spec);
@@ -51,6 +52,28 @@ export function countSolutions(
   let exhausted = false;
   let solution: number[] | null = null;
 
+  const units = unitsFor(spec).all; // rows, then columns, then boxes
+  const usedOfUnit = (u: number) => (u < n ? rowUsed[u] : u < 2 * n ? colUsed[u - n] : boxUsed[u - 2 * n]);
+  const masks = new Int32Array(grid.length);
+
+  const place = (i: number, b: number) => {
+    grid[i] = 32 - Math.clz32(b);
+    rowUsed[rowOf[i]] |= b;
+    colUsed[colOf[i]] |= b;
+    boxUsed[boxOf[i]] |= b;
+  };
+  const unplace = (i: number, b: number) => {
+    grid[i] = 0;
+    rowUsed[rowOf[i]] &= ~b;
+    colUsed[colOf[i]] &= ~b;
+    boxUsed[boxOf[i]] &= ~b;
+  };
+
+  /**
+   * Branch on whichever is most constrained: the empty cell with the fewest
+   * candidates, or the (unit, value) with the fewest possible positions
+   * ("hidden single" reasoning). The second makes big sparse grids tractable.
+   */
   const search = (remaining: number): boolean => {
     if (remaining === 0) {
       count++;
@@ -61,41 +84,60 @@ export function countSolutions(
       exhausted = true;
       return true;
     }
-    // Pick the empty cell with the fewest candidates (swap it to the end of the active range).
-    let best = -1;
-    let bestMask = 0;
-    let bestCount = n + 1;
-    for (let k = 0; k < remaining; k++) {
-      const i = empty[k];
+
+    let bestCell = -1;
+    let bestCellCount = n + 1;
+    for (const i of empty) {
+      if (grid[i] !== 0) continue;
       const mask = all & ~(rowUsed[rowOf[i]] | colUsed[colOf[i]] | boxUsed[boxOf[i]]);
+      masks[i] = mask;
       const c = popcount(mask);
-      if (c < bestCount) {
-        best = k;
-        bestMask = mask;
-        bestCount = c;
-        if (c <= 1) break;
+      if (c === 0) return false;
+      if (c < bestCellCount) {
+        bestCell = i;
+        bestCellCount = c;
       }
     }
-    if (bestCount === 0) return false;
-    const last = remaining - 1;
-    [empty[best], empty[last]] = [empty[last], empty[best]];
-    const i = empty[last];
-    const r = rowOf[i];
-    const c = colOf[i];
-    const bx = boxOf[i];
-    let mask = bestMask;
+
+    let bestUnit = -1;
+    let bestBit = 0;
+    let bestPosCount = bestCellCount;
+    if (bestCellCount > 1) {
+      for (let u = 0; u < units.length; u++) {
+        let missing = all & ~usedOfUnit(u);
+        while (missing) {
+          const b = missing & -missing;
+          missing ^= b;
+          let c = 0;
+          for (const i of units[u]) if (grid[i] === 0 && masks[i] & b) c++;
+          if (c === 0) return false;
+          if (c < bestPosCount) {
+            bestUnit = u;
+            bestBit = b;
+            bestPosCount = c;
+          }
+        }
+      }
+    }
+
+    if (bestUnit >= 0) {
+      for (const i of units[bestUnit]) {
+        if (grid[i] !== 0 || !(masks[i] & bestBit)) continue;
+        place(i, bestBit);
+        const stop = search(remaining - 1);
+        unplace(i, bestBit);
+        if (stop) return true;
+      }
+      return false;
+    }
+
+    let mask = masks[bestCell];
     while (mask) {
       const b = mask & -mask;
       mask ^= b;
-      grid[i] = 32 - Math.clz32(b);
-      rowUsed[r] |= b;
-      colUsed[c] |= b;
-      boxUsed[bx] |= b;
-      const stop = search(last);
-      rowUsed[r] &= ~b;
-      colUsed[c] &= ~b;
-      boxUsed[bx] &= ~b;
-      grid[i] = 0;
+      place(bestCell, b);
+      const stop = search(remaining - 1);
+      unplace(bestCell, b);
       if (stop) return true;
     }
     return false;
@@ -109,4 +151,23 @@ export function countSolutions(
 export function hasUniqueSolution(spec: GridSpec, puzzle: readonly number[], maxNodes?: number): boolean {
   const r = countSolutions(spec, puzzle, 2, maxNodes);
   return r.count === 1 && !r.exhausted;
+}
+
+/**
+ * Verify a generated puzzle has exactly one solution.
+ *
+ * Logical proof: if sound deductions alone (the grader) solve it and reach
+ * `solution`, no other solution can exist. Brute force runs as an extra
+ * check within a node budget: a second solution means rejection; running
+ * out of budget (common on sparse 25×25 grids) leaves the proof standing.
+ */
+export function verifyUnique(
+  spec: GridSpec,
+  puzzle: readonly number[],
+  solution: readonly number[],
+  maxNodes = 50_000,
+): boolean {
+  const logic = grade(spec, puzzle);
+  if (!logic.solved || logic.values.some((v, i) => v !== solution[i])) return false;
+  return countSolutions(spec, puzzle, 2, maxNodes).count < 2;
 }

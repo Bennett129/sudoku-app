@@ -9,3 +9,4 @@ export * from "./units";
 export * from "./solver";
 export * from "./grader";
 export * from "./puzzle";
+export * from "./encode";
