@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sudoku
 
-## Getting Started
+A mobile-friendly sudoku app supporting grids from 4×4 to 25×25, built with Next.js, TypeScript, Tailwind CSS and Zustand.
 
-First, run the development server:
+See [PLAN.md](./PLAN.md) for goals, decisions and the roadmap.
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm test           # engine unit tests (Vitest)
+npm run typecheck
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Controls
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Key | Action |
+|---|---|
+| `1`–`9`, `A`–`P` | Enter value |
+| `Shift` + key | Toggle note |
+| Arrow keys | Move selection |
+| `Backspace` / `Delete` | Erase |
+| `Space` | Toggle notes mode |
+| `Ctrl+Z` / `Ctrl+Y` | Undo / redo |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+On touch screens: pinch to zoom the grid, drag to pan.
 
-## Learn More
+## Photography
 
-To learn more about Next.js, take a look at the following resources:
+Background photos from Unsplash:
+[Rafael Peier](https://unsplash.com/@rafaelpeier) (Summit),
+[Sarmat Batagov](https://unsplash.com/@batag_) (Pass),
+[Filip Zrnzević](https://unsplash.com/@filipz) (Dusk).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Originals go in `assets/themes/` (git-ignored); `npm run themes` generates the optimised versions in `public/themes/`.

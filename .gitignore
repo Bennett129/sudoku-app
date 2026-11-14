@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# theme photo originals (large; web versions are generated into public/themes)
+/assets/themes/*.jpg

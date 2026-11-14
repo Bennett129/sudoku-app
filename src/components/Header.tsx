@@ -1,0 +1,103 @@
+"use client";
+
+import { SUPPORTED_SIZES } from "@/lib/engine";
+import { THEMES } from "@/lib/themes";
+import { formatTime, useGame } from "@/store/game";
+import { useSettings } from "@/store/settings";
+import { useZoom } from "@/store/zoom";
+
+export function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const size = useGame((s) => s.spec.size);
+  const elapsed = useGame((s) => s.elapsed);
+  const newGame = useGame((s) => s.newGame);
+  const theme = useSettings((s) => s.theme);
+  const update = useSettings((s) => s.update);
+
+  return (
+    <header className="frost flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3 py-2">
+      <h1 className="text-lg font-semibold tracking-tight">Sudoku</h1>
+
+      <label className="flex items-center gap-1.5 text-sm">
+        <span className="sr-only">Grid size</span>
+        <select
+          value={size}
+          onChange={(e) => newGame(Number(e.target.value))}
+          className="rounded-lg bg-key px-2 py-1 font-medium text-ink"
+        >
+          {SUPPORTED_SIZES.map((n) => (
+            <option key={n} value={n}>
+              {n}×{n}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <button
+        type="button"
+        onClick={() => newGame(size)}
+        className="rounded-lg bg-accent px-3 py-1 text-sm font-medium text-accent-ink"
+      >
+        New
+      </button>
+
+      <span className="ml-auto font-mono text-sm tabular-nums" aria-label="Time elapsed">
+        {formatTime(elapsed)}
+      </span>
+
+      <ZoomControls />
+
+      <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Theme">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={theme === t.id}
+            aria-label={`${t.name} theme (${t.tone})`}
+            title={t.name}
+            onClick={() => update({ theme: t.id })}
+            className={`size-6 rounded-full border-2 transition ${
+              theme === t.id ? "scale-110 border-ink" : "border-white/60"
+            }`}
+            style={{ background: t.swatch }}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpenSettings}
+        aria-label="Settings"
+        className="rounded-lg p-1 text-ink hover:bg-key"
+      >
+        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
+          <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
+          <circle cx="16" cy="6" r="2" />
+          <circle cx="10" cy="12" r="2" />
+          <circle cx="18" cy="18" r="2" />
+        </svg>
+      </button>
+    </header>
+  );
+}
+
+/** Zoom for the board; pinch / wheel work too. The % button resets to fit. */
+function ZoomControls() {
+  const scale = useZoom((z) => z.scale);
+  const maxScale = useZoom((z) => z.maxScale);
+  const zoomed = scale > 1.01;
+  const btn = "min-w-8 px-2 py-1 font-medium tabular-nums hover:bg-key-hover disabled:opacity-40";
+  return (
+    <div className="flex overflow-hidden rounded-lg bg-key text-sm text-ink" role="group" aria-label="Board zoom">
+      <button type="button" className={btn} aria-label="Zoom out" disabled={!zoomed} onClick={() => useZoom.getState().zoomBy(1 / 1.5)}>
+        −
+      </button>
+      <button type="button" className={btn} aria-label="Fit board" title="Fit board" disabled={!zoomed} onClick={() => useZoom.getState().reset()}>
+        {Math.round(scale * 100)}%
+      </button>
+      <button type="button" className={btn} aria-label="Zoom in" disabled={scale >= maxScale} onClick={() => useZoom.getState().zoomBy(1.5)}>
+        +
+      </button>
+    </div>
+  );
+}
