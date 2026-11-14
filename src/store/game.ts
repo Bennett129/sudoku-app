@@ -2,15 +2,15 @@ import { create } from "zustand";
 import {
   candidatesFor,
   colOf,
-  createRng,
-  generateSolution,
-  makeDisplayPuzzle,
+  effectiveDifficulty,
   peersOf,
   randomSeed,
   rowOf,
   specFor,
+  type Difficulty,
   type GridSpec,
 } from "@/lib/engine";
+import { requestPuzzle } from "@/lib/generate-client";
 import { makeGameId, type SavedGame } from "@/lib/save/serialize";
 import { useSettings } from "./settings";
 
@@ -41,8 +41,13 @@ interface GameState extends Snapshot {
   /** Whole seconds; displayed as mm:ss. */
   elapsed: number;
   status: GameStatus;
+  /** Rating the grader gave this puzzle; null for games saved before difficulty existed. */
+  difficulty: Difficulty | null;
+  /** Set while a new puzzle is being generated in the background. */
+  generating: { size: number; difficulty: Difficulty } | null;
 
-  newGame: (size: number, seed?: number) => void;
+  /** Generate a new puzzle (in a Web Worker). Defaults to the preferred difficulty. */
+  newGame: (size: number, difficulty?: Difficulty) => Promise<void>;
   /** Load a validated saved game (see lib/save). */
   restore: (saved: SavedGame) => void;
   select: (index: number | null) => void;
@@ -80,6 +85,9 @@ function removeFromPeerNotes(spec: GridSpec, notes: number[], index: number, val
 
 const initialSpec = specFor(9);
 
+/** Bumped on every new game / restore so a slow generation can't overwrite a newer game. */
+let generation = 0;
+
 export const useGame = create<GameState>()((set, get) => ({
   spec: initialSpec,
   seed: 0,
@@ -97,8 +105,11 @@ export const useGame = create<GameState>()((set, get) => ({
   hintsUsed: 0,
   elapsed: 0,
   status: "loading",
+  difficulty: null,
+  generating: null,
 
-  restore: (saved) =>
+  restore: (saved) => {
+    generation++; // cancel any puzzle still being generated
     set({
       spec: specFor(saved.size),
       seed: saved.seed,
@@ -116,21 +127,36 @@ export const useGame = create<GameState>()((set, get) => ({
       hintsUsed: saved.hintsUsed,
       elapsed: saved.elapsed,
       status: saved.status,
-    }),
+      difficulty: saved.difficulty,
+      generating: null,
+    });
+  },
 
-  newGame: (size, seed = randomSeed()) => {
-    const spec = specFor(size);
-    const rng = createRng(seed);
-    const solution = generateSolution(spec, rng);
-    const values = makeDisplayPuzzle(solution, rng);
+  newGame: async (size, preferred = useSettings.getState().difficulty) => {
+    const difficulty = effectiveDifficulty(size, preferred);
+    const token = ++generation;
+    set({ generating: { size, difficulty } });
+    const seed = randomSeed();
+    let puzzle;
+    try {
+      puzzle = await requestPuzzle(size, seed, difficulty);
+    } catch (error) {
+      console.error("[generate] failed:", error);
+      if (token === generation) set({ generating: null });
+      return;
+    }
+    if (token !== generation) return; // superseded by another new game, size switch or restore
+    const values = puzzle.puzzle;
     const cells = size * size;
     set({
-      spec,
+      spec: specFor(size),
       seed,
       id: makeGameId(size, seed),
       createdAt: Date.now(),
-      solution,
+      solution: puzzle.solution,
       values,
+      difficulty: puzzle.difficulty,
+      generating: null,
       givens: values.map((v) => v !== 0),
       notes: new Array(cells).fill(0),
       hinted: new Array(cells).fill(false),
@@ -243,7 +269,7 @@ export const useGame = create<GameState>()((set, get) => ({
     set({ notes, past: pushPast(s.past, s), future: [] });
   },
 
-  tick: () => set((s) => (s.status === "playing" ? { elapsed: s.elapsed + 1 } : s)),
+  tick: () => set((s) => (s.status === "playing" && !s.generating ? { elapsed: s.elapsed + 1 } : s)),
 }));
 
 export function formatTime(seconds: number): string {

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { CompletedGame } from "@/lib/save/serialize";
 import { loadCompleted } from "@/lib/save/storage";
-import { computeStats, solveBadge, statsForSize } from "@/lib/stats";
+import { puzzleLabel } from "@/lib/labels";
+import { computeStats, solveBadge, statsFor } from "@/lib/stats";
 import { formatTime, useGame } from "@/store/game";
 
 /**
@@ -17,6 +18,7 @@ export function SolvedCard() {
   const seed = useGame((s) => s.seed);
   const elapsed = useGame((s) => s.elapsed);
   const hintsUsed = useGame((s) => s.hintsUsed);
+  const difficulty = useGame((s) => s.difficulty);
   const [solvedId, setSolvedId] = useState<string | null>(null);
   const [solvedAt, setSolvedAt] = useState(0);
   const [records, setRecords] = useState<CompletedGame[] | null>(null);
@@ -37,10 +39,10 @@ export function SolvedCard() {
   if (solvedId === null || solvedId !== id) return null;
 
   // Include this game even if its record hasn't finished writing yet.
-  const self: CompletedGame = { size, seed, elapsed, hintsUsed, completedAt: solvedAt };
+  const self: CompletedGame = { size, difficulty, seed, elapsed, hintsUsed, completedAt: solvedAt };
   const all = records ? [...records.filter((r) => !(r.size === size && r.seed === seed)), self] : null;
-  const stats = all ? statsForSize(computeStats(all), size) : null;
-  const badge = records ? solveBadge(records, { size, seed, elapsed, hintsUsed }) : null;
+  const stats = all ? statsFor(computeStats(all), size, difficulty) : null;
+  const badge = records ? solveBadge(records, { size, difficulty, seed, elapsed, hintsUsed }) : null;
 
   return (
     // Scrim sized to the board: dims and blurs the grid so the card reads cleanly.
@@ -54,11 +56,7 @@ export function SolvedCard() {
       >
         <div className="flex h-6 items-center">
           {badge === "best" && <Pill>New best time</Pill>}
-          {badge === "first" && (
-            <Pill>
-              First {size}×{size} solve
-            </Pill>
-          )}
+          {badge === "first" && <Pill>First {puzzleLabel(size, difficulty)} solve</Pill>}
         </div>
 
         <div className="-mt-2 flex flex-col items-center gap-1">
@@ -77,14 +75,14 @@ export function SolvedCard() {
           <Stat label="Average" value={stats ? formatTime(stats.averageTime) : "…"} />
         </dl>
         <p className="-mt-2 text-xs text-ink-muted">
-          {size}×{size} · best time counts solves without hints
+          {puzzleLabel(size, difficulty)} · best time counts solves without hints
         </p>
 
         <div className="flex w-full flex-col gap-2">
           <button
             type="button"
             autoFocus
-            onClick={() => useGame.getState().newGame(size)}
+            onClick={() => void useGame.getState().newGame(size)}
             className="rounded-xl bg-accent py-2.5 font-medium text-accent-ink transition active:scale-[0.98]"
           >
             New {size}×{size}

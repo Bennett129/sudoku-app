@@ -4,3 +4,8 @@ export * from "./geometry";
 export * from "./random";
 export * from "./generate";
 export * from "./candidates";
+export * from "./bits";
+export * from "./units";
+export * from "./solver";
+export * from "./grader";
+export * from "./puzzle";

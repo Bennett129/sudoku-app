@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { chooseSize, emptyCell, openApp, tool, waitForSave } from "./helpers";
+import { chooseSize, emptyCell, GENERATE_TIMEOUT, openApp, tool, waitForSave } from "./helpers";
 
 test.describe("board", () => {
   test("deals a 9×9 puzzle by default with gridlines", async ({ page }) => {
@@ -58,6 +58,27 @@ test.describe("board", () => {
     await expect(fit).not.toHaveText("100%");
     await page.locator(".cell").nth(40).dblclick();
     await expect(fit).toHaveText("100%");
+  });
+});
+
+test.describe("difficulty", () => {
+  test("choosing a difficulty deals a puzzle graded at that level", async ({ page }) => {
+    await openApp(page);
+    const chip = page.getByTitle("This puzzle's graded difficulty");
+    await expect(chip).toHaveText("Medium"); // the default
+    await page.getByLabel("Difficulty for new puzzles").selectOption("easy");
+    await expect(chip).toHaveText("Easy", { timeout: GENERATE_TIMEOUT });
+    // Expert lands within milliseconds on 9×9; Hard is rarer and is covered by
+    // a seeded unit test instead, so this test can't flake on a slow runner.
+    await page.getByLabel("Difficulty for new puzzles").selectOption("expert");
+    await expect(chip).toHaveText("Expert", { timeout: GENERATE_TIMEOUT });
+  });
+
+  test("6×6 only offers easy and medium", async ({ page }) => {
+    await openApp(page);
+    await page.getByLabel("Grid size").selectOption("6");
+    const options = await page.getByLabel("Difficulty for new puzzles").locator("option").allTextContents();
+    expect(options).toEqual(["Easy", "Medium"]);
   });
 });
 
@@ -137,7 +158,7 @@ test.describe("finishing", () => {
     }
     const card = page.getByRole("dialog", { name: "Solved!" });
     await expect(card).toBeVisible();
-    await expect(card).toContainText("First 6×6 solve");
+    await expect(card).toContainText(/First (Easy|Medium) 6×6 solve/);
 
     await card.getByRole("button", { name: "View board" }).click();
     await expect(card).toBeHidden();

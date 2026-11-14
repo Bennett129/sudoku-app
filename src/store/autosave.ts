@@ -64,6 +64,7 @@ export function startAutosave(): () => void {
     if (prev.status === "playing" && state.status === "solved") {
       void storage.recordCompleted({
         size: state.spec.size,
+        difficulty: state.difficulty,
         seed: state.seed,
         elapsed: state.elapsed,
         hintsUsed: state.hintsUsed,

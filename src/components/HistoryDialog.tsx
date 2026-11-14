@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CompletedGame, GameSummary } from "@/lib/save/serialize";
 import { listGames, loadCompleted, MAX_GAMES } from "@/lib/save/storage";
+import { difficultyLabel } from "@/lib/labels";
 import { computeStats } from "@/lib/stats";
 import { deleteGame, openGame, useSaves } from "@/store/autosave";
 import { formatTime, useGame } from "@/store/game";
@@ -146,17 +147,17 @@ function StatsView({ records }: { records: CompletedGame[] | null }) {
       <table className="w-full text-sm tabular-nums">
         <thead>
           <tr className="text-left text-xs text-ink-muted">
-            <th className="py-1 font-medium">Size</th>
+            <th className="py-1 font-medium">Puzzle</th>
             <th className="py-1 text-right font-medium">Solved</th>
             <th className="py-1 text-right font-medium">Best</th>
             <th className="py-1 text-right font-medium">Average</th>
           </tr>
         </thead>
         <tbody>
-          {stats.bySize.map((s) => (
-            <tr key={s.size} className="border-t border-panel-border">
+          {stats.groups.map((s) => (
+            <tr key={`${s.size}-${s.difficulty}`} className="border-t border-panel-border">
               <td className="py-2 font-medium">
-                {s.size}×{s.size}
+                {s.size}×{s.size} <span className="font-normal text-ink-muted">{difficultyLabel(s.difficulty)}</span>
               </td>
               <td className="py-2 text-right">{s.solved}</td>
               <td className="py-2 text-right font-mono">{s.bestTime === null ? "—" : formatTime(s.bestTime)}</td>
@@ -205,7 +206,10 @@ function HistoryRow(props: { game: GameSummary; current: boolean; onOpen: () => 
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex items-baseline justify-between gap-2">
             <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate font-medium">{solved ? "Solved" : "In progress"}</span>
+              <span className="truncate font-medium">
+                {solved ? "Solved" : "In progress"}
+                {g.difficulty && <span className="font-normal text-ink-muted"> · {difficultyLabel(g.difficulty)}</span>}
+              </span>
               {current && (
                 <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold tracking-wide text-accent-ink uppercase">
                   Now playing

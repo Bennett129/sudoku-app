@@ -6,9 +6,13 @@ export async function openApp(page: Page) {
   await expect(page.locator(".cell").first()).toBeVisible();
 }
 
+/** Big grids are generated in a worker and can take several seconds. */
+export const GENERATE_TIMEOUT = 30_000;
+
 export async function chooseSize(page: Page, size: number) {
   await page.getByLabel("Grid size").selectOption(String(size));
-  await expect(page.locator(".cell")).toHaveCount(size * size);
+  await expect(page.locator(".cell")).toHaveCount(size * size, { timeout: GENERATE_TIMEOUT });
+  await expect(page.getByText(/^Generating/)).toBeHidden({ timeout: GENERATE_TIMEOUT });
 }
 
 /** First empty cell that isn't a given. */

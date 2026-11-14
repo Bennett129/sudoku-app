@@ -12,6 +12,7 @@ import { AccountDialog } from "./AccountDialog";
 import { HistoryDialog } from "./HistoryDialog";
 import { SettingsDialog } from "./SettingsDialog";
 import { SolvedCard } from "./SolvedCard";
+import { GeneratingCard } from "./GeneratingCard";
 import { ZoomableBoard } from "./ZoomableBoard";
 
 export function GameScreen() {
@@ -49,6 +50,7 @@ export function GameScreen() {
             <ZoomableBoard key={seed} />
           </div>
           <SolvedCard />
+          <GeneratingCard />
         </section>
 
         <aside className="frost shrink-0 rounded-2xl p-3 lg:flex lg:w-80 lg:flex-col lg:justify-center">
@@ -138,6 +140,7 @@ function useKeyboard(disabled: boolean) {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
       const g = useGame.getState();
+      if (g.generating) return; // board is busy
       const mod = e.ctrlKey || e.metaKey;
 
       if (mod && e.code === "KeyZ") {

@@ -196,13 +196,19 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
 - [x] "Fill notes" toolbar button: pencils in every candidate for each empty cell (one undo step); `candidatesFor` in the engine, unit-tested
 - [x] Solved screen: card over the board (time, hints, "New best time" / "First N×N solve" badge, that size's solved count, best and average) with **New** and **View board**; only for games finished in this session
 - [x] Stats tab in the History panel: totals (solved, without hints, time played) and a per-size table (solved, best, average). Best times count hint-free solves only. Pure, unit-tested `lib/stats.ts`
-- [ ] Add difficulty to stats once puzzles are graded (phase 3)
+- [x] Stats grouped by size and difficulty (games from before grading show as "Unrated")
 - [x] Playwright end-to-end tests (desktop Chrome + Pixel 7) against a production build; GitHub Actions CI runs lint, type-check, unit tests and e2e on every push and PR
 
-### Phase 3 — Real puzzles
-- [ ] Uniqueness solver + uniqueness-preserving removal (all sizes)
-- [ ] Technique library + grader (Easy and Medium first, then Hard and Expert)
-- [ ] Generation in a Web Worker; difficulty picker in the UI
+### Phase 3 — Real puzzles ✅
+- [x] **Technique library** (`engine/techniques.ts`): naked/hidden singles; pointing, box/line reduction, naked/hidden pairs; naked/hidden triples and quads, X-Wing, Swordfish; XY-Wing, XYZ-Wing, Jellyfish. Generic over rows, columns and boxes, so every size works. None assume uniqueness, so anything they solve has exactly one solution.
+- [x] **Grader** (`engine/grader.ts`): applies the easiest technique that makes progress, restarts from the easiest after each move, and rates a puzzle by the hardest technique it needed.
+- [x] **Generator** (`engine/puzzle.ts`): technique-bounded removal (a removal is kept only if the puzzle stays solvable with techniques up to the target). If an attempt comes out too easy, it builds an unrestricted puzzle from the same grid and gives clues back until it rates exactly at the target. Retries within a time budget per size (4 s for ≤12, up to 9 s for 25×25) and labels the result with its *actual* rating.
+- [x] **Uniqueness solver** (`engine/solver.ts`): bitmask backtracking, fewest-candidates-first, stops at 2 solutions; used by tests to verify every generated puzzle.
+- [x] Tests: each deduction checked for soundness against the known solution; generated puzzles verified unique; technique cases (naked pair, X-Wing, XY-Wing).
+- [x] Generation runs in a **Web Worker** with a "Generating…" card; header difficulty picker (saved preference) and the current puzzle's graded difficulty; History and Stats grouped by difficulty.
+- [x] **6×6 offers Easy and Medium only**: Hard techniques almost never arise with six values (0 of 300 sampled puzzles needed one).
+- Measured (desktop): 9×9 Easy/Medium/Expert ≈ 0.02–0.1 s, Hard median 0.7 s (29/30 within 2.5 s); 25×25 Easy ≈ 0.6 s up to Expert ≈ 8 s.
+- [ ] Later: Simple Coloring, Unique Rectangle (needs care: assumes uniqueness), chains
 
 ### Phase 4 — Puzzle bank
 - [ ] Postgres + Prisma schema; API route to fetch an unplayed puzzle

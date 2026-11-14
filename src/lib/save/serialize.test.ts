@@ -11,6 +11,7 @@ function sampleState(size = 6) {
     seed: 42,
     id: makeGameId(size, 42),
     createdAt: 500,
+    difficulty: "medium" as const,
     solution,
     givens: values.map((v) => v !== 0),
     ...snap,
@@ -30,10 +31,12 @@ describe("saved games", () => {
     const legacy: Record<string, unknown> = { ...saved, v: 1 };
     delete legacy.id;
     delete legacy.createdAt;
+    delete legacy.difficulty;
     const parsed = parseSavedGame(legacy);
     expect(parsed?.v).toBe(2);
     expect(parsed?.id).toBe(makeGameId(6, 42));
     expect(parsed?.createdAt).toBe(1000);
+    expect(parsed?.difficulty).toBeNull(); // saved before puzzles were graded
   });
 
   it("summarises a game for the History list", () => {

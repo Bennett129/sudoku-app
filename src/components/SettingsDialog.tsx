@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { THEMES } from "@/lib/themes";
 import { useSettings } from "@/store/settings";
+import { ThemePicker } from "./Header";
 
 export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -28,6 +29,11 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm hover:bg-key">
             Done
           </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="font-medium">Theme</div>
+          <ThemePicker />
         </div>
 
         <Toggle

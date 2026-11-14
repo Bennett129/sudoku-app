@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Difficulty } from "@/lib/engine";
 import { DEFAULT_THEME, type ThemeId } from "@/lib/themes";
 
 export interface Settings {
@@ -10,6 +11,8 @@ export interface Settings {
   highlightMistakes: boolean;
   /** Max undo steps kept; null = unlimited. Default 3 by design. */
   undoLimit: number | null;
+  /** Difficulty used for new puzzles. */
+  difficulty: Difficulty;
 }
 
 interface SettingsStore extends Settings {
@@ -21,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoCleanNotes: true,
   highlightMistakes: true,
   undoLimit: 3,
+  difficulty: "medium",
 };
 
 export const useSettings = create<SettingsStore>()(

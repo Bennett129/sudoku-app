@@ -39,10 +39,9 @@ export function generateSolution(spec: GridSpec, rng: Rng): number[] {
 }
 
 /**
- * TEMPORARY — display-phase placeholder.
- * Removes cells at random with no uniqueness check, so the result may have
- * several solutions. Replaced in phase 3 by uniqueness-preserving removal
- * plus the technique grader (see PLAN.md).
+ * Random removal with no uniqueness check — may have several solutions.
+ * Not used by the app (see puzzle.ts for real generation); kept for tests
+ * that need arbitrary partial grids, e.g. the grader soundness check.
  */
 export function makeDisplayPuzzle(
   solution: readonly number[],

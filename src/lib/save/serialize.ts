@@ -8,7 +8,7 @@
  * v1: one save per grid size (no id).  v2: every game has its own id, so
  * past games stay available in History. v1 saves are upgraded on read.
  */
-import { SUPPORTED_SIZES } from "@/lib/engine";
+import { DIFFICULTIES, SUPPORTED_SIZES, type Difficulty } from "@/lib/engine";
 
 export const SAVE_VERSION = 2;
 
@@ -33,6 +33,8 @@ export interface SavedGame extends SavedSnapshot {
   /** Whole seconds. */
   elapsed: number;
   status: "playing" | "solved";
+  /** Graded difficulty; null for games saved before puzzles were graded. */
+  difficulty: Difficulty | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -42,6 +44,7 @@ export interface GameSummary {
   id: string;
   size: number;
   status: "playing" | "solved";
+  difficulty: Difficulty | null;
   /** Cells filled (givens + entries). */
   filled: number;
   total: number;
@@ -54,6 +57,8 @@ export interface GameSummary {
 /** One finished game, kept for stats. */
 export interface CompletedGame {
   size: number;
+  /** Missing on records from before puzzles were graded. */
+  difficulty?: Difficulty | null;
   seed: number;
   elapsed: number;
   hintsUsed: number;
@@ -90,6 +95,7 @@ export function toSavedGame(state: GameLike, now = Date.now()): SavedGame | null
     hintsUsed: state.hintsUsed,
     elapsed: state.elapsed,
     status: state.status,
+    difficulty: state.difficulty,
     createdAt: state.createdAt,
     updatedAt: now,
   };
@@ -100,6 +106,7 @@ export function summarize(game: SavedGame): GameSummary {
     id: game.id,
     size: game.size,
     status: game.status,
+    difficulty: game.difficulty,
     filled: game.values.filter((v) => v !== 0).length,
     total: game.size * game.size,
     elapsed: game.elapsed,
@@ -161,6 +168,7 @@ export function parseSavedGame(x: unknown): SavedGame | null {
     hintsUsed: x.hintsUsed,
     elapsed: x.elapsed,
     status: x.status,
+    difficulty: DIFFICULTIES.includes(x.difficulty as Difficulty) ? (x.difficulty as Difficulty) : null,
     createdAt: isInt(x.createdAt, 0) ? x.createdAt : updatedAt,
     updatedAt,
   };
