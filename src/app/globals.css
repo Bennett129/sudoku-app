@@ -30,7 +30,7 @@
   --accent: #7a5312;
   --accent-ink: #fffdf8;
   --line-thick: #3d3524;
-  --line-thin: #d6cfbf;
+  --line-thin: #c9bfa9;
   --cell: #fbf9f4;
   --cell-peer: #efeadf;
   --cell-same: #efe0bb;
@@ -59,7 +59,7 @@
   --accent: #284c69;
   --accent-ink: #f4f7fa;
   --line-thick: #1d2b38;
-  --line-thin: #b3c2cf;
+  --line-thin: #a3b4c3;
   --cell: #e8edf2;
   --cell-peer: #d9e2ea;
   --cell-same: #f1d3b7;
@@ -88,7 +88,7 @@
   --accent: #d48f58;
   --accent-ink: #1a1410;
   --line-thick: #c9bfb2;
-  --line-thin: #3a3834;
+  --line-thin: #4a4741;
   --cell: #1f1e1c;
   --cell-peer: #2a2926;
   --cell-same: #41301f;
@@ -153,27 +153,57 @@ body {
 
 /* ---- Board ---- */
 
+/*
+ * The board fills its square frame exactly; the grid splits it into N×N
+ * cells with no gaps. Gridlines are an SVG overlay (see Board.tsx) so they
+ * render at every device-pixel ratio and zoom level. The outer edge is a
+ * CSS border, which browsers always snap to whole device pixels.
+ */
 .board {
   container-type: inline-size;
+  position: relative;
+  height: 100%;
   display: grid;
-  gap: 2px;
-  padding: 2px;
-  background: var(--line-thick);
+  border: 2px solid var(--line-thick);
   border-radius: 6px;
+  overflow: hidden;
+  background: var(--cell);
   user-select: none;
 }
 
-.box {
-  display: grid;
-  gap: 1px;
-  background: var(--line-thin);
+/* Largest square that fits the board area. */
+.board-square {
+  width: min(100cqw, 100cqh);
 }
+
+.gridlines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  /*
+   * Anti-aliased on purpose. `crispEdges` snapped each 1px line to whole
+   * device pixels, and at fractional scales (browser zoom, 125 %/150 % display
+   * scaling) some lines rounded to zero pixels and vanished — which ones
+   * depended on the zoom level.
+   */
+  shape-rendering: geometricPrecision;
+}
+.gridlines path { vector-effect: non-scaling-stroke; }
+/* Never thinner than one physical pixel (--dpr is set from devicePixelRatio). */
+.gridlines-thin { stroke: var(--line-thin); stroke-width: max(1px, calc(1px / var(--dpr, 1))); }
+.gridlines-thick { stroke: var(--line-thick); stroke-width: max(2px, calc(2px / var(--dpr, 1))); }
 
 .cell {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: var(--cell);
   color: var(--entered);
   font-size: calc(100cqi / var(--n) * 0.58);

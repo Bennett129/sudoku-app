@@ -8,11 +8,18 @@ See [PLAN.md](./PLAN.md) for goals, decisions and the roadmap.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+cp .env.example .env   # then fill in DATABASE_URL and BETTER_AUTH_SECRET
+npm run db:migrate     # creates the database tables
+npm run dev            # http://localhost:3000
 npm test           # engine unit tests (Vitest)
 npm run typecheck
 npm run lint
 ```
+
+## Sign-in
+
+Email only: enter your email, then the 6-digit code you're sent. In development, without
+`RESEND_API_KEY`, the code is printed to the dev server console instead of emailed.
 
 ## Controls
 

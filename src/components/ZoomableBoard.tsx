@@ -135,8 +135,10 @@ export function ZoomableBoard() {
     [maxScale],
   );
 
+  const zoomed = view.s !== 1 || view.x !== 0 || view.y !== 0;
+
   return (
-    <div className="aspect-square" style={{ width: "min(100cqw, 100cqh)" }}>
+    <div className="board-square aspect-square">
       <div
         ref={frameRef}
         className="h-full w-full overflow-hidden rounded-md shadow-2xl shadow-black/30"
@@ -149,9 +151,15 @@ export function ZoomableBoard() {
           }
         }}
       >
+        {/*
+          No `will-change: transform` and no transform at all when not zoomed:
+          a promoted layer is rasterised once and then resampled when it sits at a
+          fractional device-pixel offset (125 % / 150 % display scaling), which
+          blurs 1px gridlines away until something forces a re-raster.
+        */}
         <div
-          className="h-full w-full origin-top-left will-change-transform"
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
+          className="h-full w-full origin-top-left"
+          style={{ transform: zoomed ? `translate(${view.x}px, ${view.y}px) scale(${view.s})` : undefined }}
         >
           <Board />
         </div>

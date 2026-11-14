@@ -1,12 +1,13 @@
 "use client";
 
 import { SUPPORTED_SIZES } from "@/lib/engine";
+import { authClient } from "@/lib/auth-client";
 import { THEMES } from "@/lib/themes";
 import { formatTime, useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
 import { useZoom } from "@/store/zoom";
 
-export function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function Header({ onOpenSettings, onOpenAccount }: { onOpenSettings: () => void; onOpenAccount: () => void }) {
   const size = useGame((s) => s.spec.size);
   const elapsed = useGame((s) => s.elapsed);
   const newGame = useGame((s) => s.newGame);
@@ -77,7 +78,34 @@ export function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
           <circle cx="18" cy="18" r="2" />
         </svg>
       </button>
+      <AccountButton onClick={onOpenAccount} />
     </header>
+  );
+}
+
+/** Person icon when signed out; the email's initial when signed in. */
+function AccountButton({ onClick }: { onClick: () => void }) {
+  const { data: session, isPending } = authClient.useSession();
+  const email = session?.user.email;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={email ? `Account (${email})` : "Sign in"}
+      title={email ?? "Sign in"}
+      className={`grid size-8 place-items-center rounded-full text-sm font-semibold transition ${
+        email ? "bg-accent text-accent-ink" : "text-ink hover:bg-key"
+      } ${isPending ? "opacity-50" : ""}`}
+    >
+      {email ? (
+        email[0].toUpperCase()
+      ) : (
+        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
+        </svg>
+      )}
+    </button>
   );
 }
 

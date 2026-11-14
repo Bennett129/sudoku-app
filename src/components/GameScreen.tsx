@@ -7,18 +7,21 @@ import { formatTime, useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
 import { Controls } from "./Controls";
 import { Header } from "./Header";
+import { AccountDialog } from "./AccountDialog";
 import { SettingsDialog } from "./SettingsDialog";
 import { ZoomableBoard } from "./ZoomableBoard";
 
 export function GameScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const seed = useGame((s) => s.seed);
   const status = useGame((s) => s.status);
   const theme = useSettings((s) => s.theme);
 
   useBoot();
+  useDevicePixelRatio();
   useTimer();
-  useKeyboard(settingsOpen);
+  useKeyboard(settingsOpen || accountOpen);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -28,7 +31,7 @@ export function GameScreen() {
 
   return (
     <main className="mx-auto flex h-dvh w-full max-w-6xl flex-col gap-3 p-3 sm:p-4 lg:gap-4">
-      <Header onOpenSettings={() => setSettingsOpen(true)} />
+      <Header onOpenSettings={() => setSettingsOpen(true)} onOpenAccount={() => setAccountOpen(true)} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
         {/* Board area: a size container so the square board fits both width and height. */}
@@ -54,6 +57,7 @@ export function GameScreen() {
       </footer>
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
     </main>
   );
 }
@@ -74,6 +78,25 @@ function useBoot() {
   useEffect(() => {
     void useSettings.persist.rehydrate();
     if (useGame.getState().status === "loading") useGame.getState().newGame(9);
+  }, []);
+}
+
+/**
+ * Expose devicePixelRatio as the CSS variable --dpr so gridlines can stay at
+ * least one physical pixel wide. Updates on browser zoom and when the window
+ * moves to a screen with different scaling.
+ */
+function useDevicePixelRatio() {
+  useEffect(() => {
+    let query: MediaQueryList | null = null;
+    const update = () => {
+      document.documentElement.style.setProperty("--dpr", String(window.devicePixelRatio || 1));
+      query?.removeEventListener("change", update);
+      query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      query.addEventListener("change", update);
+    };
+    update();
+    return () => query?.removeEventListener("change", update);
   }, []);
 }
 

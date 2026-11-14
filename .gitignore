@@ -42,3 +42,9 @@ next-env.d.ts
 
 # theme photo originals (large; web versions are generated into public/themes)
 /assets/themes/*.jpg
+
+# generated Prisma client
+/src/generated
+
+# local env (copy .env.example)
+!.env.example

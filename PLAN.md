@@ -31,7 +31,7 @@ _Last updated: 2026-11-14_
 | Timer | Stored as **whole seconds**, displayed as `m:ss` (`h:mm:ss` past an hour). Pauses while the tab is hidden; stops when solved. |
 | Keyboard | `1–9`/`A–P` enter a value · **Shift+key** enters a note · arrow keys move · Backspace/Delete erase · Space toggles notes mode · Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) undo/redo. Uses `KeyboardEvent.code`, so Shift doesn't change which value a key means. Space is used for notes mode because N is a value in 25×25. |
 | Zoom | In-app pinch/drag/wheel zoom on the grid only, plus −/%/+ buttons in the header. Browser page zoom stays enabled for accessibility. The view pans automatically to keep the selected cell visible. |
-| Accounts | Email-only sign-in (magic link / one-time code). **Optional**: the app works fully without an account; signing in adds sync across devices. |
+| Accounts | Email-only sign-in with a **6-digit code**, not a magic link: on phones, links usually open inside the mail app's own browser, so the session would land in the wrong browser. First sign-in creates the account. **Optional**: the app works fully without an account; signing in adds sync across devices. |
 | Saving | Local first (IndexedDB), synced to the server when signed in. |
 
 ## 3. Tech stack
@@ -47,9 +47,9 @@ Chosen to be solid engineering and also recognisable on a CV.
 | Unit tests | Vitest | ✅ in place |
 | E2E tests | Playwright with mobile device emulation | phase 2 |
 | UI kit | shadcn/ui (dialogs, selects, toasts) when the settings UI grows | phase 2 |
-| Database | PostgreSQL (Neon or Supabase) | phase 3 |
-| ORM | Prisma | phase 3 |
-| Auth | Auth.js email provider + Resend | phase 5 |
+| Database | PostgreSQL (local for dev; Neon or Supabase in production) | ✅ in place |
+| ORM | Prisma 7 (`prisma-client` generator + `@prisma/adapter-pg`) | ✅ in place |
+| Auth | **Better Auth** email-OTP plugin + Resend. Chosen over Auth.js because Auth.js is now maintained by the Better Auth team, who recommend Better Auth for new projects. | ✅ in place |
 | CI/CD | GitHub Actions (lint, type-check, tests, puzzle generation job) + Vercel | phase 2 |
 | Offline | PWA via Serwist | stretch |
 
@@ -203,7 +203,8 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
 - [ ] Puzzle IDs in the URL
 
 ### Phase 5 — Accounts and sync
-- [ ] Auth.js email sign-in (Resend), rate-limited
+- [x] Better Auth email-code sign-in (Resend; console fallback in dev); codes hashed, 10-minute expiry, 5 attempts; rate limits stored in the DB; 30-day sessions
+- [ ] Set up Resend with a verified sending domain for production
 - [ ] Sync settings, games in progress and stats; merge local data on first sign-in
 
 ## 8. Open questions
