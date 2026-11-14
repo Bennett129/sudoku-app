@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  candidatesFor,
   colOf,
   createRng,
   generateSolution,
@@ -52,6 +53,8 @@ interface GameState extends Snapshot {
   undo: () => void;
   redo: () => void;
   hint: () => void;
+  /** Pencil in every possible value for each empty cell (one undo step). */
+  fillCandidates: () => void;
   tick: () => void;
 }
 
@@ -230,6 +233,14 @@ export const useGame = create<GameState>()((set, get) => ({
       future: [],
       status: isSolved(values, s.solution) ? "solved" : "playing",
     });
+  },
+
+  fillCandidates: () => {
+    const s = get();
+    if (s.status !== "playing") return;
+    const notes = candidatesFor(s.spec, s.values);
+    if (notes.every((m, i) => m === s.notes[i])) return; // nothing would change
+    set({ notes, past: pushPast(s.past, s), future: [] });
   },
 
   tick: () => set((s) => (s.status === "playing" ? { elapsed: s.elapsed + 1 } : s)),

@@ -19,11 +19,11 @@ function Toolbar() {
   const canRedo = useGame((s) => s.future.length > 0);
   const hintsUsed = useGame((s) => s.hintsUsed);
   const solved = useGame((s) => s.status === "solved");
-  const { undo, redo, erase, toggleNotesMode, hint } = useGame.getState();
+  const { undo, redo, erase, toggleNotesMode, hint, fillCandidates } = useGame.getState();
   const undoLimit = useSettings((s) => s.undoLimit);
 
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-6 gap-1 sm:gap-2">
       <Tool label="Undo" onClick={undo} disabled={solved || undosLeft === 0} badge={undoLimit === null ? undefined : String(undosLeft)}>
         <path d="M9 14 4 9l5-5" />
         <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
@@ -40,6 +40,10 @@ function Toolbar() {
       <Tool label="Notes" onClick={toggleNotesMode} disabled={solved} active={notesMode} badge={notesMode ? "on" : "off"}>
         <path d="M12 20h9" />
         <path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </Tool>
+      <Tool label="Fill notes" onClick={fillCandidates} disabled={solved}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M7.5 7.5h.01M12 7.5h.01M16.5 7.5h.01M7.5 12h.01M16.5 12h.01M7.5 16.5h.01M12 16.5h.01M16.5 16.5h.01" strokeWidth={2.6} />
       </Tool>
       <Tool label="Hint" onClick={hint} disabled={solved} badge={hintsUsed ? String(hintsUsed) : undefined}>
         <path d="M9 18h6" />
@@ -64,14 +68,14 @@ function Tool(props: {
       onClick={props.onClick}
       disabled={props.disabled}
       aria-pressed={props.active}
-      className={`relative flex flex-col items-center gap-0.5 rounded-xl py-2 text-xs font-medium transition disabled:opacity-40 ${
+      className={`relative flex min-w-0 flex-col items-center gap-0.5 rounded-xl py-2 text-[11px] font-medium sm:text-xs transition disabled:opacity-40 ${
         props.active ? "bg-accent text-accent-ink" : "text-ink hover:bg-key"
       }`}
     >
       <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {props.children}
       </svg>
-      <span>{props.label}</span>
+      <span className="whitespace-nowrap">{props.label}</span>
       {props.badge && (
         <span className="absolute top-1 right-[18%] rounded-full bg-accent px-1.5 text-[10px] leading-4 text-accent-ink">
           {props.badge}

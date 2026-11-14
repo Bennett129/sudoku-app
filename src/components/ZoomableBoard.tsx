@@ -26,8 +26,10 @@ export function ZoomableBoard() {
   const frameRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<View>(IDENTITY);
   const suppressClick = useRef(false);
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
   const [view, setView] = useState<View>(IDENTITY);
   const size = useGame((s) => s.spec.size);
+  const box = useGame((s) => s.spec.box);
 
   // Bigger grids get more zoom headroom (9×9 → 2.5×, 25×25 → ~6×).
   const maxScale = Math.max(2.5, size / 4);
@@ -54,6 +56,28 @@ export function ZoomableBoard() {
   const zoomCenter = (factor: number) => {
     const w = frameRef.current?.clientWidth ?? 0;
     zoomAt(factor, w / 2, w / 2);
+  };
+
+  /**
+   * Double-tap / double-click: zoom so the tapped box fills the board;
+   * doing it again while zoomed returns to the full board.
+   */
+  const toggleBoxZoom = (clientX: number, clientY: number) => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const v = viewRef.current;
+    if (v.s > 1.05) return apply(IDENTITY);
+    const rect = frame.getBoundingClientRect();
+    const w = frame.clientWidth;
+    const cell = w / size;
+    const col = Math.floor((clientX - rect.left - v.x) / v.s / cell);
+    const row = Math.floor((clientY - rect.top - v.y) / v.s / cell);
+    const left = Math.floor(col / box.cols) * box.cols * cell;
+    const top = Math.floor(row / box.rows) * box.rows * cell;
+    const bw = box.cols * cell;
+    const bh = box.rows * cell;
+    const s = clampNum(Math.min(w / bw, w / bh) * 0.9, 1, maxScale);
+    apply({ s, x: w / 2 - (left + bw / 2) * s, y: w / 2 - (top + bh / 2) * s });
   };
 
   useGesture(
@@ -89,6 +113,15 @@ export function ZoomableBoard() {
       drag: { filterTaps: true },
     },
   );
+
+  // Report the board's on-screen size (used to decide whether notes are readable).
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => useZoom.setState({ boardPx: el.clientWidth }));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // iOS Safari fires its own gesture events for pinch; stop it zooming the page here.
   useEffect(() => {
@@ -148,6 +181,15 @@ export function ZoomableBoard() {
           if (suppressClick.current) {
             e.stopPropagation();
             e.preventDefault();
+            return;
+          }
+          // Double-tap detection (works for touch and mouse; the tap still selects the cell).
+          const prev = lastTap.current;
+          if (prev && e.timeStamp - prev.t < 350 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 30) {
+            lastTap.current = null;
+            toggleBoxZoom(e.clientX, e.clientY);
+          } else {
+            lastTap.current = { t: e.timeStamp, x: e.clientX, y: e.clientY };
           }
         }}
       >

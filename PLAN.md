@@ -191,13 +191,13 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
   - Finished games are recorded (size, time, hints) for stats
 - [x] **History**: every game is saved under its own id (`<size>-<seed>`), so starting a new puzzle keeps the old one. The History panel lists games with size, status, progress, time and hints; filters for all, in progress and solved; tap to reopen; remove with a confirming second tap. Keeps the 50 most recent, never pruning a size's current game. Saves from the old one-per-size format are upgraded automatically on load
 - [x] Prevent the theme flashing on first paint (inline script that sets `data-theme` before hydration)
-- [ ] Double-tap a box to zoom into it
-- [ ] Notes on big grids: show notes only when zoomed in enough to read them (show a dot otherwise)
-- [ ] "Fill all candidates" action
+- [x] Double-tap (or double-click) a box to zoom so it fills the board; again to zoom back out
+- [x] Notes on big grids: when note digits would be under ~7 px on screen, cells show a dot instead (highlighted when it holds the selected value); zooming in reveals the notes
+- [x] "Fill notes" toolbar button: pencils in every candidate for each empty cell (one undo step); `candidatesFor` in the engine, unit-tested
 - [x] Solved screen: card over the board (time, hints, "New best time" / "First N×N solve" badge, that size's solved count, best and average) with **New** and **View board**; only for games finished in this session
 - [x] Stats tab in the History panel: totals (solved, without hints, time played) and a per-size table (solved, best, average). Best times count hint-free solves only. Pure, unit-tested `lib/stats.ts`
 - [ ] Add difficulty to stats once puzzles are graded (phase 3)
-- [ ] Playwright e2e on iPhone/Pixel emulation; GitHub Actions CI
+- [x] Playwright end-to-end tests (desktop Chrome + Pixel 7) against a production build; GitHub Actions CI runs lint, type-check, unit tests and e2e on every push and PR
 
 ### Phase 3 — Real puzzles
 - [ ] Uniqueness solver + uniqueness-preserving removal (all sizes)

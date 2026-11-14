@@ -6,6 +6,8 @@ import { create } from "zustand";
  */
 interface ZoomStore {
   scale: number;
+  /** Unzoomed board width in CSS px (kept current by a ResizeObserver). */
+  boardPx: number;
   maxScale: number;
   zoomBy: (factor: number) => void;
   reset: () => void;
@@ -13,6 +15,7 @@ interface ZoomStore {
 
 export const useZoom = create<ZoomStore>()(() => ({
   scale: 1,
+  boardPx: 0,
   maxScale: 2.5,
   zoomBy: () => {},
   reset: () => {},

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SUPPORTED_SIZES,
   boxShapeFor,
+  candidatesFor,
   createRng,
   generateSolution,
   isValidSolution,
@@ -59,5 +60,27 @@ describe("symbols and keys", () => {
     expect(valueForKeyCode("KeyP", 25)).toBe(25);
     expect(valueForKeyCode("KeyQ", 25)).toBeNull();
     expect(valueForKeyCode("Numpad7", 9)).toBe(7);
+  });
+});
+
+describe("candidatesFor", () => {
+  it("lists values not used by any peer, and nothing for filled cells", () => {
+    const spec = specFor(6);
+    const values = new Array(36).fill(0);
+    values[0] = 1; // row 0, col 0, box 0
+    values[7] = 2; // row 1, col 1, box 0
+    values[3] = 3; // row 0, col 3, box 1
+    values[12] = 4; // row 2, col 0, box 2
+    const c = candidatesFor(spec, values);
+    expect(c[0]).toBe(0);
+    // cell 1 (row 0, col 1): peers hold 1 (row/box), 2 (col/box), 3 (row) → {4,5,6}
+    expect(c[1]).toBe(0b111000);
+    // cell 6 (row 1, col 0): peers hold 1 (col/box), 2 (row/box), 4 (col) → {3,5,6}
+    expect(c[6]).toBe(0b110100);
+  });
+
+  it("gives every value to an empty board", () => {
+    const spec = specFor(9);
+    expect(candidatesFor(spec, new Array(81).fill(0)).every((m) => m === 0b111111111)).toBe(true);
   });
 });

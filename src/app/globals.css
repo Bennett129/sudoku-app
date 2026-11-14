@@ -244,6 +244,20 @@ body {
 .notes > span { display: grid; place-items: center; }
 .notes > span[data-match] { color: var(--accent); font-weight: 800; }
 
+/* Shown instead of notes when they'd be too small to read (big grids, zoomed out). */
+.note-dot {
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: var(--note);
+  opacity: 0.55;
+}
+.note-dot[data-match] {
+  width: 32%;
+  background: var(--accent);
+  opacity: 1;
+}
+
 /* Entrance for the solved card. */
 @keyframes pop {
   from {

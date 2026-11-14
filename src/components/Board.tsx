@@ -3,6 +3,7 @@
 import { boxOf, colOf, rowOf, symbolFor, range, type BoxShape } from "@/lib/engine";
 import { useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
+import { useZoom } from "@/store/zoom";
 
 /**
  * The grid is a flat N×N CSS grid of cells with no gaps; gridlines are an
@@ -23,6 +24,8 @@ export function Board() {
   const selected = useGame((s) => s.selected);
   const select = useGame((s) => s.select);
   const highlightMistakes = useSettings((s) => s.highlightMistakes);
+  // Subscribes to a boolean, so zooming only re-renders the board when it flips.
+  const compactNotes = useZoom((z) => notesTooSmall(z.boardPx * z.scale, spec.size, spec.box.cols));
 
   const { size: n, box } = spec;
   if (values.length !== n * n) return <div className="board w-full" aria-busy="true" />;
@@ -73,7 +76,14 @@ export function Board() {
             tabIndex={-1}
             onClick={() => select(i)}
           >
-            {v !== 0 ? symbolFor(v) : notes[i] !== 0 && <Notes mask={notes[i]} size={n} match={selValue} />}
+            {v !== 0
+              ? symbolFor(v)
+              : notes[i] !== 0 &&
+                (compactNotes ? (
+                  <NoteDot match={selValue !== 0 && (notes[i] & (1 << (selValue - 1))) !== 0} />
+                ) : (
+                  <Notes mask={notes[i]} size={n} match={selValue} />
+                ))}
           </button>
         );
       })}
@@ -96,6 +106,23 @@ function GridLines({ size: n, box }: { size: number; box: BoxShape }) {
       <path className="gridlines-thick" d={thick.join("")} />
     </svg>
   );
+}
+
+/** Smallest note digit, in screen px, that is still comfortably readable. */
+const MIN_NOTE_PX = 7;
+
+/** True when note digits would render too small to read at the current zoom. */
+export function notesTooSmall(boardScreenPx: number, size: number, noteCols: number): boolean {
+  if (boardScreenPx <= 0) return false; // not measured yet
+  return (boardScreenPx / size / noteCols) * 0.82 < MIN_NOTE_PX;
+}
+
+/**
+ * Stand-in for unreadably small notes: a dot shows the cell has notes, and is
+ * highlighted when they include the selected value. Zoom in to read them.
+ */
+function NoteDot({ match }: { match: boolean }) {
+  return <span className="note-dot" data-match={match || undefined} aria-hidden="true" />;
 }
 
 function Notes({ mask, size, match }: { mask: number; size: number; match: number }) {
