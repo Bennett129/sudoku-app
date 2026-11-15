@@ -1,13 +1,16 @@
 import { expect, type Page } from "@playwright/test";
 
-/** Open the app and wait for the first puzzle to be dealt. */
-export async function openApp(page: Page) {
-  await page.goto("/");
-  await expect(page.locator(".cell").first()).toBeVisible();
-}
-
 /** Big grids are generated in a worker and can take several seconds. */
 export const GENERATE_TIMEOUT = 30_000;
+
+/**
+ * Open the app and wait for the first puzzle to be dealt. On a cold server
+ * the bank request can time out (2 s) before the worker takes over.
+ */
+export async function openApp(page: Page) {
+  await page.goto("/");
+  await expect(page.locator(".cell").first()).toBeVisible({ timeout: GENERATE_TIMEOUT });
+}
 
 export async function chooseSize(page: Page, size: number) {
   await page.getByLabel("Grid size").selectOption(String(size));

@@ -13,7 +13,7 @@ npm run db:migrate     # creates the database tables
 npm run bank:fill      # optional: pre-generate puzzles into the bank
 npm run dev            # http://localhost:3000
 npm test           # unit tests (Vitest)
-npm run test:e2e   # end-to-end tests (Playwright; builds the app)
+npm run test:e2e   # end-to-end tests (Playwright; builds the app; the sync test needs the database)
 npm run typecheck
 npm run lint
 ```
@@ -22,6 +22,9 @@ npm run lint
 
 Email only: enter your email, then the 6-digit code you're sent. In development, without
 `RESEND_API_KEY`, the code is printed to the dev server console instead of emailed.
+
+Signing in is optional. When signed in, games, stats and settings sync across devices; games
+played before signing in are merged into the account.
 
 ## Controls
 

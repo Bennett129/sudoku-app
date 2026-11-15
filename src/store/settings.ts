@@ -1,37 +1,24 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Difficulty } from "@/lib/engine";
-import { DEFAULT_THEME, type ThemeId } from "@/lib/themes";
+import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 
-export interface Settings {
-  theme: ThemeId;
-  /** Entering a value removes it from the notes of every peer cell. */
-  autoCleanNotes: boolean;
-  /** Show entries that disagree with the solution. */
-  highlightMistakes: boolean;
-  /** Max undo steps kept; null = unlimited. Default 3 by design. */
-  undoLimit: number | null;
-  /** Difficulty used for new puzzles. */
-  difficulty: Difficulty;
-}
+export { DEFAULT_SETTINGS, type Settings } from "@/lib/settings";
 
 interface SettingsStore extends Settings {
+  /** When the player last changed a setting (ms); 0 = never. Used for sync. */
+  updatedAt: number;
   update: (patch: Partial<Settings>) => void;
+  /** Take settings from the account (sync) without counting it as a local change. */
+  applyRemote: (settings: Settings, updatedAt: number) => void;
 }
-
-export const DEFAULT_SETTINGS: Settings = {
-  theme: DEFAULT_THEME,
-  autoCleanNotes: true,
-  highlightMistakes: true,
-  undoLimit: 3,
-  difficulty: "medium",
-};
 
 export const useSettings = create<SettingsStore>()(
   persist(
     (set) => ({
       ...DEFAULT_SETTINGS,
-      update: (patch) => set(patch),
+      updatedAt: 0,
+      update: (patch) => set({ ...patch, updatedAt: Date.now() }),
+      applyRemote: (settings, updatedAt) => set({ ...settings, updatedAt }),
     }),
     {
       name: "sudoku-settings",

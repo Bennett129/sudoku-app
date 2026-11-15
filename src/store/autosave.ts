@@ -29,8 +29,14 @@ export const useSaves = create<SavesState>()(() => ({ inProgress: [], revision: 
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let dirty = false;
+/** Set while showing a game that just arrived from the account, so it isn't re-saved as a local change. */
+let quiet = false;
 
-async function refreshSaves() {
+let markBooted: () => void;
+/** Resolves once the first game is on screen and old saves are upgraded. */
+export const booted = new Promise<void>((resolve) => (markBooted = resolve));
+
+export async function refreshSaves() {
   const inProgress = await storage.listInProgressSizes();
   useSaves.setState((s) => ({ inProgress, revision: s.revision + 1 }));
 }
@@ -53,7 +59,7 @@ function scheduleSave() {
 /** Start watching the game store. Returns a cleanup function. */
 export function startAutosave(): () => void {
   const unsubscribe = useGame.subscribe((state, prev) => {
-    if (state.status === "loading") return;
+    if (state.status === "loading" || quiet) return;
 
     // A different game is now showing (new puzzle, size switch, reopened from History).
     if (state.id !== prev.id) {
@@ -153,4 +159,32 @@ export async function bootGame(sharedId?: string): Promise<boolean> {
   const size = SUPPORTED_SIZES.includes(lastSize as (typeof SUPPORTED_SIZES)[number]) ? lastSize! : DEFAULT_SIZE;
   await openSize(size);
   return !sharedId;
+}
+
+/** Mark start-up finished (called by the game screen after bootGame). */
+export const finishBoot = () => markBooted();
+
+/**
+ * After a sync brought in games from another device: if the game on screen
+ * changed there, or another game at this size was played more recently,
+ * show that one. Unsaved local changes (at most a second or two of play)
+ * lose to the newer remote game, as last-write-wins would decide anyway.
+ */
+export async function followRemote(changedIds: string[]): Promise<void> {
+  if (changedIds.length === 0) return;
+  const g = useGame.getState();
+  if (g.status === "loading" || g.generating) return;
+  const current = await storage.loadCurrentGame(g.spec.size);
+  if (!current || !changedIds.includes(current.id)) return;
+  const now = useGame.getState();
+  if (now.id !== g.id || now.generating) return; // the player moved on meanwhile
+  if (timer) clearTimeout(timer);
+  timer = null;
+  dirty = false;
+  quiet = true;
+  try {
+    now.restore(current);
+  } finally {
+    quiet = false;
+  }
 }

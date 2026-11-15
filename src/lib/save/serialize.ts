@@ -38,7 +38,14 @@ export interface SavedGame extends SavedSnapshot {
   /** Puzzle-bank id (shareable), or null for locally generated puzzles. */
   bankId: string | null;
   createdAt: number;
+  /** When it was last saved on this device (ms). */
   updatedAt: number;
+  /**
+   * When the board last changed (ms). Unlike updatedAt this doesn't move
+   * while a game merely sits open with the timer running, so it decides
+   * which copy wins when two devices sync the same game.
+   */
+  movedAt: number;
 }
 
 /** Lightweight description of a game for the History list. */
@@ -71,9 +78,10 @@ export interface CompletedGame {
 /** Stable id from the puzzle itself: the same size + seed is the same puzzle. */
 export const makeGameId = (size: number, seed: number) => `${size}-${seed.toString(36)}`;
 
-type GameLike = Omit<SavedGame, "v" | "size" | "updatedAt" | "status"> & {
+type GameLike = Omit<SavedGame, "v" | "size" | "updatedAt" | "movedAt" | "status"> & {
   spec: { size: number };
   status: string;
+  movedAt?: number;
 };
 
 export function toSavedGame(state: GameLike, now = Date.now()): SavedGame | null {
@@ -102,6 +110,7 @@ export function toSavedGame(state: GameLike, now = Date.now()): SavedGame | null
     bankId: state.bankId,
     createdAt: state.createdAt,
     updatedAt: now,
+    movedAt: state.movedAt || now,
   };
 }
 
@@ -177,6 +186,7 @@ export function parseSavedGame(x: unknown): SavedGame | null {
     bankId: typeof x.bankId === "string" && /^[0-9a-z]{8}$/.test(x.bankId) ? x.bankId : null,
     createdAt: isInt(x.createdAt, 0) ? x.createdAt : updatedAt,
     updatedAt,
+    movedAt: isInt(x.movedAt, 0) ? x.movedAt : updatedAt,
   };
 }
 

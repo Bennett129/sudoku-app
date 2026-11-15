@@ -13,9 +13,23 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # A throwaway database for the account-sync tests (test accounts only).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Placeholders so the app builds and starts. The tests never sign in or
-      # touch the database; these are not real credentials.
+      # CI-only values for the throwaway database above; not real credentials.
+      # No RESEND_API_KEY, so no email is ever sent from CI.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       BETTER_AUTH_SECRET: ci-placeholder-secret-not-used-anywhere-real-0000
       BETTER_AUTH_URL: http://localhost:3200
@@ -37,6 +51,9 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

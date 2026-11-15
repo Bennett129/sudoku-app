@@ -3,6 +3,8 @@
 // database-backed rate limiting, which works on serverless hosts.
 // The puzzle bank (phase 4) stores pre-generated, graded puzzles so new games
 // open instantly and can be shared by link.
+// Sync (phase 5) keeps a signed-in player's settings, games and stats in
+// their account; see src/lib/sync/protocol.ts for the rules.
 
 generator client {
   provider = "prisma-client"
@@ -23,6 +25,9 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  settings      UserSettings?
+  games         SyncedGame[]
+  solves        Solve[]
 
   @@map("user")
 }
@@ -99,4 +104,52 @@ model Puzzle {
 
   @@index([size, difficulty])
   @@map("puzzle")
+}
+
+/// A player's settings, last-write-wins by the device time they were changed.
+model UserSettings {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json
+  /// When the player changed them, on their device (ms since epoch).
+  updatedAt BigInt
+  /// When the server stored them; sync cursors compare against this.
+  syncedAt  DateTime @default(now())
+
+  @@map("user_settings")
+}
+
+/// One saved game (without undo history), or a tombstone if data is null.
+model SyncedGame {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The game's id on the device (e.g. "9-abc123" or "p-<bank id>").
+  gameId    String
+  /// The SavedGame JSON; null once deleted.
+  data      Json?
+  /// When the board last changed (movedAt) or the game was deleted, on a device (ms since epoch).
+  updatedAt BigInt
+  syncedAt  DateTime @default(now())
+
+  @@id([userId, gameId])
+  @@index([userId, syncedAt])
+  @@map("synced_game")
+}
+
+/// A finished game, for stats.
+model Solve {
+  id          Int      @id @default(autoincrement())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  size        Int
+  difficulty  String?
+  seed        BigInt
+  elapsed     Int
+  hintsUsed   Int
+  completedAt BigInt
+  syncedAt    DateTime @default(now())
+
+  @@unique([userId, size, seed, completedAt])
+  @@index([userId, syncedAt])
+  @@map("solve")
 }

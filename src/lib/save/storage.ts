@@ -7,6 +7,7 @@
  *   meta:current:<size>  id of the game shown for that grid size
  *   meta:lastSize        size to reopen on the next visit
  *   completed            CompletedGame[] for stats
+ *   sync:*               sync bookkeeping (bottom of this file)
  *
  * At most MAX_GAMES games are kept; the oldest are pruned, but never a game
  * that is current for some size. Every call swallows storage errors (private
@@ -14,7 +15,8 @@
  */
 import { createStore, del, get, keys, set, update, type UseStore } from "idb-keyval";
 import { SUPPORTED_SIZES } from "@/lib/engine";
-import { parseSavedGame, summarize, type CompletedGame, type GameSummary, type SavedGame } from "./serialize";
+import { forSync, isNewer, mergeCompleted, type Tombstone } from "@/lib/sync/protocol";
+import { hasProgress, parseSavedGame, summarize, type CompletedGame, type GameSummary, type SavedGame } from "./serialize";
 
 export const MAX_GAMES = 50;
 const MAX_COMPLETED = 1000;
@@ -85,13 +87,18 @@ export const saveGame = (game: SavedGame) =>
     await prune();
   }, undefined);
 
-/** Delete a game from History. */
+/** Delete a game from History (and, once synced, from the account). */
 export const removeGame = (id: string) =>
   safe(async () => {
     const game = parseSavedGame(await get(gameKey(id), db()));
     await del(gameKey(id), db());
     await update<GameSummary[]>(INDEX, (list = []) => list.filter((g) => g.id !== id), db());
     if (game && (await get(currentKey(game.size), db())) === id) await del(currentKey(game.size), db());
+    await update<Tombstone[]>(
+      REMOVED,
+      (list = []) => [...list.filter((t) => t.id !== id), { id, at: Date.now() }].slice(-MAX_REMOVED),
+      db(),
+    );
   }, undefined);
 
 /** All saved games, most recently played first. */
@@ -161,4 +168,105 @@ export const migrateLegacySaves = () =>
       (k): k is string => typeof k === "string" && k.startsWith("meta:current:") && !supported(Number(k.slice(13))),
     );
     await Promise.all(pointers.map((k) => del(k, db())));
+  }, undefined);
+
+// ---------------------------------------------------------------------------
+// Sync bookkeeping (see src/store/sync.ts)
+//   sync:state    { userId, cursor, pushedAt } for the signed-in account
+//   sync:removed  Tombstone[] of games deleted here, until the account has them
+
+export interface SyncState {
+  userId: string;
+  /** Server cursor from the last successful pull. */
+  cursor: number;
+  /** Device time up to which local changes have been pushed. */
+  pushedAt: number;
+}
+
+const SYNC_STATE = "sync:state";
+const REMOVED = "sync:removed";
+const MAX_REMOVED = 200;
+
+export const loadSyncState = () =>
+  safe(async () => {
+    const s = (await get(SYNC_STATE, db())) as Partial<SyncState> | undefined;
+    return s && typeof s.userId === "string" && typeof s.cursor === "number" && typeof s.pushedAt === "number"
+      ? (s as SyncState)
+      : null;
+  }, null);
+
+export const saveSyncState = (state: SyncState) => safe(() => set(SYNC_STATE, state, db()), undefined);
+
+export const loadRemoved = () =>
+  safe(async () => ((await get(REMOVED, db())) as Tombstone[] | undefined) ?? [], [] as Tombstone[]);
+
+/** Forget deletions the account now has. */
+export const clearRemoved = (ids: string[]) =>
+  safe(
+    () => update<Tombstone[]>(REMOVED, (list = []) => list.filter((t) => !ids.includes(t.id)), db()),
+    undefined,
+  );
+
+/** Saved games changed after `since` (device time), oldest first, ready to upload. */
+export const gamesChangedSince = (since: number) =>
+  safe(async () => {
+    const changed = (await readIndex()).filter((g) => g.updatedAt > since).sort((a, b) => a.updatedAt - b.updatedAt);
+    const games = await Promise.all(changed.map((g) => get(gameKey(g.id), db()).then(parseSavedGame)));
+    return games.filter((g): g is SavedGame => g !== null).map(forSync);
+  }, [] as SavedGame[]);
+
+/**
+ * Store games from the account where they're newer than this device's copy.
+ * A newer game also becomes current for its size, so switching to that size
+ * (or reloading) continues where the other device left off.
+ * Returns the ids that changed.
+ */
+export const applyRemoteGames = (games: SavedGame[]) =>
+  safe(async () => {
+    const changed: string[] = [];
+    for (const game of games) {
+      const local = parseSavedGame(await get(gameKey(game.id), db()));
+      if (local && !isNewer(game, local)) continue;
+      await set(gameKey(game.id), game, db());
+      await update<GameSummary[]>(INDEX, (list = []) => [summarize(game), ...list.filter((g) => g.id !== game.id)], db());
+      const currentId = await get(currentKey(game.size), db());
+      const current = typeof currentId === "string" ? parseSavedGame(await get(gameKey(currentId), db())) : null;
+      // An untouched game (e.g. the one a new device dealt on first load) gives way
+      // to a game that has progress, even if it was dealt more recently.
+      const untouched = current && current.hintsUsed === 0 && !hasProgress(current);
+      if (
+        !current ||
+        current.id === game.id ||
+        isNewer(game, current) ||
+        (untouched && (hasProgress(game) || game.status === "solved"))
+      ) {
+        await set(currentKey(game.size), game.id, db());
+      }
+      changed.push(game.id);
+    }
+    if (changed.length > 0) await prune();
+    return changed;
+  }, [] as string[]);
+
+/** Delete games another device deleted, unless they were changed here afterwards. */
+export const applyRemoteRemovals = (tombstones: Tombstone[], keepId: string | null) =>
+  safe(async () => {
+    let count = 0;
+    for (const t of tombstones) {
+      if (t.id === keepId) continue; // never pull the board out from under the player
+      const local = parseSavedGame(await get(gameKey(t.id), db()));
+      if (!local || local.movedAt > t.at) continue;
+      await del(gameKey(t.id), db());
+      await update<GameSummary[]>(INDEX, (list = []) => list.filter((g) => g.id !== t.id), db());
+      if ((await get(currentKey(local.size), db())) === t.id) await del(currentKey(local.size), db());
+      count++;
+    }
+    return count;
+  }, 0);
+
+/** Add finished games from the account to this device's stats (no duplicates). */
+export const mergeRemoteCompleted = (records: CompletedGame[]) =>
+  safe(async () => {
+    if (records.length === 0) return;
+    await update<CompletedGame[]>(COMPLETED, (list = []) => mergeCompleted(list, records, MAX_COMPLETED), db());
   }, undefined);

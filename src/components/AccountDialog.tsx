@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { syncNow, useSync } from "@/store/sync";
 
 type Step = "email" | "code";
 
@@ -53,11 +54,14 @@ function SignedIn({ email, onDone }: { email: string; onDone: () => void }) {
       <p className="text-sm text-ink-muted">
         Signed in as <span className="font-medium break-all text-ink">{email}</span>
       </p>
+      <SyncStatus />
       <button
         type="button"
         disabled={busy}
         onClick={async () => {
           setBusy(true);
+          // Upload the latest changes first; games stay on this device after signing out.
+          await syncNow().catch(() => {});
           await authClient.signOut();
           setBusy(false);
           onDone();
@@ -68,6 +72,53 @@ function SignedIn({ email, onDone }: { email: string; onDone: () => void }) {
       </button>
     </>
   );
+}
+
+function SyncStatus() {
+  const status = useSync((s) => s.status);
+  const lastSyncedAt = useSync((s) => s.lastSyncedAt);
+  // Re-render every 30 s so "just now" ages.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const text =
+    status === "syncing"
+      ? "Syncing…"
+      : status === "error"
+        ? "Couldn't reach your account. Your games are safe on this device; we'll try again."
+        : lastSyncedAt
+          ? `Last synced ${syncedAgo(lastSyncedAt)}.`
+          : "Waiting to sync…";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-key p-3 text-sm">
+      <p>Your games, stats and settings sync across devices where you&apos;re signed in.</p>
+      <div className="flex items-center justify-between gap-3">
+        <p role="status" className={status === "error" ? "font-medium text-[var(--error)]" : "text-ink-muted"}>
+          {text}
+        </p>
+        <button
+          type="button"
+          disabled={status === "syncing"}
+          onClick={() => void syncNow()}
+          className="shrink-0 rounded-lg px-2 py-1 font-medium underline disabled:no-underline disabled:opacity-60"
+        >
+          Sync now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function syncedAgo(ts: number): string {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} minute${m === 1 ? "" : "s"} ago`;
+  return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function SignInForm({ onDone }: { onDone: () => void }) {

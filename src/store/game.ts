@@ -32,6 +32,8 @@ interface GameState extends Snapshot {
   /** Stable id (size + seed), used to keep past games in History. */
   id: string;
   createdAt: number;
+  /** When the board last changed (a move, note, hint, undo): decides sync conflicts. */
+  movedAt: number;
   solution: number[];
   givens: boolean[];
   selected: number | null;
@@ -98,6 +100,7 @@ export const useGame = create<GameState>()((set, get) => ({
   seed: 0,
   id: "",
   createdAt: 0,
+  movedAt: 0,
   solution: [],
   givens: [],
   values: [],
@@ -121,6 +124,7 @@ export const useGame = create<GameState>()((set, get) => ({
       seed: saved.seed,
       id: saved.id,
       createdAt: saved.createdAt,
+      movedAt: saved.movedAt,
       solution: saved.solution,
       givens: saved.givens,
       values: saved.values,
@@ -168,6 +172,7 @@ export const useGame = create<GameState>()((set, get) => ({
       id: dealt.bankId ? `p-${dealt.bankId}` : makeGameId(size, seed),
       bankId: dealt.bankId,
       createdAt: Date.now(),
+      movedAt: Date.now(),
       solution: dealt.solution,
       values: dealt.puzzle,
       difficulty: dealt.difficulty,
@@ -217,6 +222,7 @@ export const useGame = create<GameState>()((set, get) => ({
     }
 
     set({
+      movedAt: Date.now(),
       values,
       notes,
       past: pushPast(s.past, s),
@@ -234,7 +240,7 @@ export const useGame = create<GameState>()((set, get) => ({
     const notes = s.notes.slice();
     values[i] = 0;
     notes[i] = 0;
-    set({ values, notes, past: pushPast(s.past, s), future: [] });
+    set({ movedAt: Date.now(), values, notes, past: pushPast(s.past, s), future: [] });
   },
 
   toggleNotesMode: () => set((s) => ({ notesMode: !s.notesMode })),
@@ -243,14 +249,14 @@ export const useGame = create<GameState>()((set, get) => ({
     const s = get();
     const prev = s.past.at(-1);
     if (!prev || s.status !== "playing") return;
-    set({ ...prev, past: s.past.slice(0, -1), future: [...s.future, snapshot(s)] });
+    set({ ...prev, movedAt: Date.now(), past: s.past.slice(0, -1), future: [...s.future, snapshot(s)] });
   },
 
   redo: () => {
     const s = get();
     const next = s.future.at(-1);
     if (!next || s.status !== "playing") return;
-    set({ ...next, future: s.future.slice(0, -1), past: pushPast(s.past, s) });
+    set({ ...next, movedAt: Date.now(), future: s.future.slice(0, -1), past: pushPast(s.past, s) });
   },
 
   /** Reveal the selected cell's value. Hinted cells lock like givens. */
@@ -266,6 +272,7 @@ export const useGame = create<GameState>()((set, get) => ({
     hinted[i] = true;
     if (useSettings.getState().autoCleanNotes) removeFromPeerNotes(s.spec, notes, i, values[i]);
     set({
+      movedAt: Date.now(),
       values,
       notes,
       hinted,
@@ -281,7 +288,7 @@ export const useGame = create<GameState>()((set, get) => ({
     if (s.status !== "playing") return;
     const notes = candidatesFor(s.spec, s.values);
     if (notes.every((m, i) => m === s.notes[i])) return; // nothing would change
-    set({ notes, past: pushPast(s.past, s), future: [] });
+    set({ movedAt: Date.now(), notes, past: pushPast(s.past, s), future: [] });
   },
 
   tick: () => set((s) => (s.status === "playing" && !s.generating ? { elapsed: s.elapsed + 1 } : s)),

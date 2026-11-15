@@ -223,7 +223,11 @@ Credits appear in the footer (for the active theme) and in Settings (for all thr
 ### Phase 5 — Accounts and sync
 - [x] Better Auth email-code sign-in (Resend; console fallback in dev); codes hashed, 10-minute expiry, 5 attempts; rate limits stored in the DB; 30-day sessions
 - [ ] Set up Resend with a verified sending domain for production
-- [ ] Sync settings, games in progress and stats; merge local data on first sign-in
+- [x] Sync settings, games and stats; local data merges into the account on first sign-in
+  - One `POST /api/sync` round trip pushes changes since the last sync and pulls the account's changes since a server cursor
+  - Last-write-wins per game by when its **board last changed** (not when it was saved), so a device that just has the game open with the clock running can't overwrite moves made elsewhere; deletions are tombstones
+  - Undo history stays on the device; an untouched freshly dealt game gives way to a game in progress from another device
+  - E2E test with two browser contexts on one test account; CI runs it against a Postgres service
 
 ## 8. Open questions
 

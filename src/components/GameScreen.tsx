@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { valueForKeyCode } from "@/lib/engine";
 import { themeById } from "@/lib/themes";
-import { bootGame, startAutosave } from "@/store/autosave";
+import { authClient } from "@/lib/auth-client";
+import { bootGame, finishBoot, startAutosave } from "@/store/autosave";
+import { startSync, stopSync } from "@/store/sync";
 import { formatTime, useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
 import { Controls } from "./Controls";
@@ -28,6 +30,7 @@ export function GameScreen() {
   const theme = useSettings((s) => s.theme);
 
   useBoot(sharedId, () => setNotice("That puzzle link couldn't be opened, so here's your last game instead."));
+  useAccountSync();
   useDevicePixelRatio();
   useTimer();
   useKeyboard(settingsOpen || accountOpen || historyOpen);
@@ -110,11 +113,23 @@ function useBoot(sharedId: string | undefined, onShareFailed: () => void) {
       if (!ok) onShareFailed();
       // Once a shared puzzle is open (and saved), drop the /p/<id> from the address.
       if (sharedId) window.history.replaceState(null, "", "/");
+      finishBoot();
     });
     return stopAutosave;
     // Boot once per page load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+}
+
+/** Sync games, stats and settings with the account while signed in. */
+function useAccountSync() {
+  const { data: session, isPending } = authClient.useSession();
+  const userId = session?.user.id ?? null;
+  useEffect(() => {
+    if (isPending) return;
+    if (userId) startSync(userId);
+    else stopSync();
+  }, [userId, isPending]);
 }
 
 /**

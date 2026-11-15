@@ -8,6 +8,7 @@ import { sharePuzzle } from "@/lib/share";
 import { computeStats } from "@/lib/stats";
 import { deleteGame, openGame, useSaves } from "@/store/autosave";
 import { formatTime, useGame } from "@/store/game";
+import { useSync } from "@/store/sync";
 
 type Filter = "all" | "playing" | "solved";
 
@@ -26,6 +27,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [filter, setFilter] = useState<Filter>("all");
   const revision = useSaves((s) => s.revision);
   const currentId = useGame((s) => s.id);
+  const signedIn = useSync((s) => s.userId !== null);
 
   useEffect(() => {
     const d = ref.current;
@@ -79,7 +81,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
         </div>
 
         {view === "stats" ? (
-          <StatsView records={completed} />
+          <StatsView records={completed} signedIn={signedIn} />
         ) : (
           <>
             <div role="tablist" aria-label="Filter games" className="flex gap-1 rounded-xl bg-key p-1 text-sm">
@@ -122,7 +124,8 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
             </ul>
 
             <p className="text-xs text-ink-muted">
-              Saved on this device. The {MAX_GAMES} most recent games are kept.
+              {signedIn ? "Synced with your account." : "Saved on this device."} The {MAX_GAMES} most recent games are
+              kept here.
             </p>
           </>
         )}
@@ -131,7 +134,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
-function StatsView({ records }: { records: CompletedGame[] | null }) {
+function StatsView({ records, signedIn }: { records: CompletedGame[] | null; signedIn: boolean }) {
   if (records === null) return <p className="py-6 text-center text-sm text-ink-muted">Loading…</p>;
   const stats = computeStats(records);
   if (stats.solved === 0)
@@ -168,7 +171,8 @@ function StatsView({ records }: { records: CompletedGame[] | null }) {
         </tbody>
       </table>
 
-      <p className="text-xs text-ink-muted">Best times count solves without hints. Stats are kept on this device.</p>
+      <p className="text-xs text-ink-muted">Best times count solves without hints.{" "}
+        {signedIn ? "Stats include every device you've signed in on." : "Stats are kept on this device."}</p>
     </div>
   );
 }
