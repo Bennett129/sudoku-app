@@ -149,3 +149,12 @@ describe("conflicts", () => {
     expect(isNewer(a, a)).toBe(false);
   });
 });
+
+describe("untouched games", () => {
+  it("a freshly dealt copy (movedAt 0) loses to a copy with moves", () => {
+    const dealtHere = { ...sampleGame(9000), movedAt: 0, elapsed: 30 };
+    const playedThere = { ...sampleGame(2000), movedAt: 1500, elapsed: 10 };
+    expect(isNewer(playedThere, dealtHere)).toBe(true);
+    expect(isNewer(dealtHere, playedThere)).toBe(false);
+  });
+});

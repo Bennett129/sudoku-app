@@ -32,7 +32,7 @@ interface GameState extends Snapshot {
   /** Stable id (size + seed), used to keep past games in History. */
   id: string;
   createdAt: number;
-  /** When the board last changed (a move, note, hint, undo): decides sync conflicts. */
+  /** When the board last changed (a move, note, hint, undo); 0 = untouched. Decides sync conflicts. */
   movedAt: number;
   solution: number[];
   givens: boolean[];
@@ -172,7 +172,9 @@ export const useGame = create<GameState>()((set, get) => ({
       id: dealt.bankId ? `p-${dealt.bankId}` : makeGameId(size, seed),
       bankId: dealt.bankId,
       createdAt: Date.now(),
-      movedAt: Date.now(),
+      // Not moved yet: any copy of this puzzle with real moves (e.g. the same
+      // bank puzzle played on another device) wins over this one.
+      movedAt: 0,
       solution: dealt.solution,
       values: dealt.puzzle,
       difficulty: dealt.difficulty,

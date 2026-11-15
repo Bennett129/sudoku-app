@@ -43,7 +43,7 @@ export interface SavedGame extends SavedSnapshot {
   /**
    * When the board last changed (ms). Unlike updatedAt this doesn't move
    * while a game merely sits open with the timer running, so it decides
-   * which copy wins when two devices sync the same game.
+   * which copy wins when two devices sync the same game. 0 = never moved.
    */
   movedAt: number;
 }
@@ -110,7 +110,7 @@ export function toSavedGame(state: GameLike, now = Date.now()): SavedGame | null
     bankId: state.bankId,
     createdAt: state.createdAt,
     updatedAt: now,
-    movedAt: state.movedAt || now,
+    movedAt: state.movedAt ?? now,
   };
 }
 
