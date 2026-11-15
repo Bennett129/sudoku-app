@@ -1,5 +1,7 @@
 import { setDefaultAutoSelectFamilyAttemptTimeout } from "node:net";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { attachDatabasePool } from "@vercel/functions";
+import { Pool } from "pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
 // Node tries IPv4 and IPv6 in turn ("happy eyeballs"), giving each address
@@ -15,10 +17,14 @@ setDefaultAutoSelectFamilyAttemptTimeout(2_000);
 // direct one instead (see prisma.config.ts).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+function createClient() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // On Vercel (Fluid compute) this closes idle connections before the
+  // instance is suspended, so they aren't left hanging; elsewhere it does nothing.
+  attachDatabasePool(pool);
+  return new PrismaClient({ adapter: new PrismaPg(pool) });
+}
+
+export const prisma = globalForPrisma.prisma ?? createClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
